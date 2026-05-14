@@ -500,3 +500,4 @@ Verification approach:
 - **Missing wiring** - When adding new parameters or fields, grep the entire call chain to verify. If callers do not pass the value, `options.xxx ?? fallback` always uses the fallback
 - **Redundant conditionals** - When if/else calls the same function with only argument differences, unify using ternary operators or spread syntax
 - **Copy-paste patterns** - Before writing new code, grep for existing implementations of the same kind and follow the existing pattern. Do not introduce your own style
+- **Manual edits to CHANGELOG / RELEASE_NOTES / MIGRATION are prohibited** - Do not update these release-note files in feature PRs. A dedicated release tool (e.g., `/release` skill) generates entries from commit history at release time. Even if the task instructions mention "update changelog," exclude these files (the only exception is when explicitly instructed within a release PR)
