@@ -37,6 +37,7 @@ import {
   createPlayCommandLogMeta,
   createSessionLogMeta,
 } from './conversationLogMeta.js';
+import { prependInitialPromptContext } from './promptSections.js';
 
 export { type CallAIResult, type SessionContext, callAIWithRetry } from './aiCaller.js';
 
@@ -102,6 +103,10 @@ export interface ConversationStrategy {
   previousOrderContent?: string;
   /** Enable /retry slash command (retry mode only) */
   enableRetryCommand?: boolean;
+  /** Context prepended to the first regular prompt in this conversation. */
+  initialPromptContext?: string;
+  /** Context prepended to summary prompts. */
+  summaryPromptContext?: string;
 }
 
 /**
@@ -121,6 +126,7 @@ export async function runConversationLoop(
     ? [{ role: 'user', content: initialInput.userMessage }]
     : [];
   const sourceContext = initialInput?.sourceContext;
+  let shouldSendInitialPromptContext = !!strategy.initialPromptContext;
   let sessionId = ctx.sessionId;
   const ui = getLabelObject<InteractiveUIText>('interactive.ui', ctx.lang);
   const conversationLabel = getLabel('interactive.conversationLabel', ctx.lang);
@@ -191,9 +197,13 @@ export async function runConversationLoop(
       process.stdin.pause();
       info(getLabel('interactive.ui.thinking', ctx.lang));
 
-      const promptWithTransform = strategy.transformPrompt(trimmed, sourceContext);
+      const promptWithTransform = prependInitialPromptContext(
+        strategy.transformPrompt(trimmed, sourceContext),
+        shouldSendInitialPromptContext ? strategy.initialPromptContext : undefined,
+      );
       const result = await doCallAI(promptWithTransform, strategy.systemPrompt, strategy.allowedTools);
       if (result) {
+        shouldSendInitialPromptContext = false;
         if (!result.success) {
           error(result.content);
           blankLine();
@@ -252,7 +262,14 @@ export async function runConversationLoop(
           match.text,
         );
         let summaryPrompt = buildSummaryPrompt(
-          summaryHistory, !!sessionId, ctx.lang, noTranscript, conversationLabel, workflowContext, sourceContext,
+          summaryHistory,
+          !!sessionId,
+          ctx.lang,
+          noTranscript,
+          conversationLabel,
+          workflowContext,
+          sourceContext,
+          strategy.summaryPromptContext,
         );
         if (!summaryPrompt) {
           info(ui.noConversation);
