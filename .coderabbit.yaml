@@ -72,6 +72,24 @@ chat:
   auto_reply: true
 
 knowledge_base:
+  # TAKT 自身の /review (takt-default workflow) が参照する facets を
+  # CodeRabbit にも guidelines として渡す。filePatterns 明示指定なら
+  # 配置ディレクトリに依らず全 PR 変更に適用される（公式 reference 解釈）。
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      # Policies (takt-default 系で参照される 5 つ)
+      - "builtins/ja/facets/policies/ai-antipattern.md"
+      - "builtins/ja/facets/policies/coding.md"
+      - "builtins/ja/facets/policies/review.md"
+      - "builtins/ja/facets/policies/task-decomposition.md"
+      - "builtins/ja/facets/policies/testing.md"
+      # Knowledge (takt-default 系で参照される 5 つ)
+      - "builtins/ja/facets/knowledge/architecture.md"
+      - "builtins/ja/facets/knowledge/e2e-testing.md"
+      - "builtins/ja/facets/knowledge/security.md"
+      - "builtins/ja/facets/knowledge/takt.md"
+      - "builtins/ja/facets/knowledge/unit-testing.md"
   learnings:
     scope: auto
   issues:
