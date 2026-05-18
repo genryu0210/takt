@@ -4,6 +4,21 @@ reviews:
   profile: assertive
   poem: false
 
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,jsx}"
+      instructions: |
+        レビュー時は以下の手順で進めること。
+
+        Step 1: knowledge_base に登録された TAKT のコーディングガイドライン
+                （policies/ および knowledge/ 配下のファイル群）を網羅的に参照する。
+        Step 2: 各ガイドラインに含まれるルール・REJECT 例・判定基準を、
+                今回の差分に対して 1 つずつ照合する。
+        Step 3: 該当する違反が見つかった場合、どのガイドラインのどのルールに
+                基づく指摘かを明示して指摘を作成する。
+        Step 4: 一般的なベストプラクティスより、TAKT のガイドラインに
+                書かれた基準を優先せよ。広く使われているパターンであっても、
+                ガイドライン上 REJECT であれば指摘する。
+
   auto_review:
     ignore_title_keywords:
       - "Release v"
