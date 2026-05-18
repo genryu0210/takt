@@ -5,7 +5,7 @@ reviews:
   poem: false
 
   path_instructions:
-    - path: "**/*.{ts,tsx,js,jsx}"
+    - path: "**"
       instructions: |
         レビュー時は以下の手順で進めること。
 
