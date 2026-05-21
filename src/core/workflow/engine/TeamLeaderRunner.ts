@@ -31,6 +31,8 @@ export interface TeamLeaderRunnerDeps {
   readonly getCwd: () => string;
   readonly getWorkflowName?: () => string;
   readonly getInteractive: () => boolean;
+  readonly observabilityEnabled: boolean;
+  readonly sanitizeObservabilityText?: (text: string) => string;
   readonly onPhaseStart?: (
     step: WorkflowStep,
     phase: 1 | 2 | 3,
@@ -101,14 +103,14 @@ export class TeamLeaderRunner {
     }
     const parts = await runWithPhaseSpan(
       {
-        enabled: this.deps.engineOptions.observability?.enabled === true,
+        enabled: this.deps.observabilityEnabled,
         workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
         step: leaderStep,
         iteration: parentIteration,
         phase: 1,
         phaseName: 'execute',
         instruction,
-        sanitizeText: this.deps.engineOptions.sanitizeObservabilityText,
+        sanitizeText: this.deps.sanitizeObservabilityText,
         providerInfo: leaderProviderInfo,
       },
       () => structuredCaller.decomposeTask(instruction, teamLeaderConfig.maxParts, {

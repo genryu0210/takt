@@ -68,6 +68,8 @@ export interface ParallelRunnerDeps {
   readonly getReportDir: () => string;
   readonly getWorkflowName?: () => string;
   readonly getInteractive: () => boolean;
+  readonly observabilityEnabled: boolean;
+  readonly sanitizeObservabilityText?: (text: string) => string;
   readonly detectRuleIndex: (content: string, stepName: string) => number;
   readonly structuredCaller: StructuredCaller;
   readonly onPhaseStart?: (
@@ -200,14 +202,14 @@ export class ParallelRunner {
           didEmitPhaseStart = true;
         };
         const subResponse = await runWithPhaseSpan({
-          enabled: this.deps.engineOptions.observability?.enabled === true,
+          enabled: this.deps.observabilityEnabled,
           workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
           step: subStep,
           iteration: parentIteration,
           phase: 1,
           phaseName: 'execute',
           instruction: subInstruction,
-          sanitizeText: this.deps.engineOptions.sanitizeObservabilityText,
+          sanitizeText: this.deps.sanitizeObservabilityText,
           providerInfo: subPm,
         }, () => executeAgent(subStep.persona, subInstruction, agentOptions), (result) => ({
           status: result.status,

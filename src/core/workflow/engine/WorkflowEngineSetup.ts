@@ -167,6 +167,8 @@ export function createWorkflowEngineServices(params: WorkflowEngineSetupParams):
     getReportDir: params.getReportDir,
     getWorkflowName: () => params.config.name,
     getInteractive: () => params.options.interactive === true,
+    observabilityEnabled: params.options.observability?.enabled === true,
+    sanitizeObservabilityText: params.options.sanitizeObservabilityText,
     detectRuleIndex: params.detectRuleIndex,
     structuredCaller: params.structuredCaller,
     ...phaseRelay,
@@ -190,6 +192,8 @@ export function createWorkflowEngineServices(params: WorkflowEngineSetupParams):
     getCwd: params.getCwd,
     getWorkflowName: () => params.config.name,
     getInteractive: () => params.options.interactive === true,
+    observabilityEnabled: params.options.observability?.enabled === true,
+    sanitizeObservabilityText: params.options.sanitizeObservabilityText,
     onPhaseStart: phaseRelay.onPhaseStart,
     onPhaseComplete: phaseRelay.onPhaseComplete,
   });
