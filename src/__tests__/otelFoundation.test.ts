@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 type ObservabilityConfigForTest = {
   enabled: boolean;
@@ -31,8 +32,25 @@ const enabledObservability: ObservabilityConfigForTest = {
   usageEventsPhase: false,
 };
 
+const enabledSessionLogExporterObservability: ObservabilityConfigForTest = {
+  enabled: true,
+  monitor: false,
+  sessionLogExporter: true,
+  usageEventsPhase: false,
+};
+
 async function loadFoundationWithMockedSdk(): Promise<{
-  initializeOtelFoundation: (config: ObservabilityConfigForTest) => Promise<{ shutdown(): Promise<void> }>;
+  initializeOtelFoundation: (
+    config: ObservabilityConfigForTest,
+    options?: {
+      sessionLogExporter?: {
+        shadowLogPath: string;
+        task: string;
+        workflowName: string;
+        allowSensitiveData: boolean;
+      };
+    },
+  ) => Promise<{ shutdown(): Promise<void> }>;
   sdkImportCount: () => number;
   constructedOptions: NodeSdkOptionsForTest[];
   startMock: ReturnType<typeof vi.fn>;
@@ -67,7 +85,17 @@ async function loadFoundationWithMockedSdk(): Promise<{
   });
 
   const module = await import('../infra/observability/otelFoundation.js') as {
-    initializeOtelFoundation: (config: ObservabilityConfigForTest) => Promise<{ shutdown(): Promise<void> }>;
+    initializeOtelFoundation: (
+      config: ObservabilityConfigForTest,
+      options?: {
+        sessionLogExporter?: {
+          shadowLogPath: string;
+          task: string;
+          workflowName: string;
+          allowSensitiveData: boolean;
+        };
+      },
+    ) => Promise<{ shutdown(): Promise<void> }>;
   };
 
   return {
@@ -116,6 +144,42 @@ describe('otel foundation', () => {
     expect(foundation.constructedOptions[0]?.spanProcessors).toEqual([]);
     expect(foundation.constructedOptions[0]).not.toHaveProperty('traceExporter');
     expect(foundation.shutdownMock).toHaveBeenCalledOnce();
+  });
+
+  it('should attach the shadow session log span processor only when the exporter is enabled', async () => {
+    const foundation = await loadFoundationWithMockedSdk();
+    const tempDir = mkdtempSync(join(tmpdir(), 'takt-otel-foundation-'));
+    const shadowLogPath = join(tempDir, 'session-otel-session-shadow.jsonl');
+
+    try {
+      const handle = await foundation.initializeOtelFoundation(
+        enabledSessionLogExporterObservability,
+        {
+          sessionLogExporter: {
+            shadowLogPath,
+            task: 'secret task',
+            workflowName: 'default',
+            allowSensitiveData: true,
+          },
+        },
+      );
+      await handle.shutdown();
+
+      expect(foundation.constructedOptions[0]?.spanProcessors).toHaveLength(1);
+      const records = readFileSync(shadowLogPath, 'utf-8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      expect(records).toEqual([
+        expect.objectContaining({
+          type: 'workflow_start',
+          task: 'secret task',
+          workflowName: 'default',
+        }),
+      ]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('should share one SDK instance across concurrent enabled handles and shutdown once', async () => {

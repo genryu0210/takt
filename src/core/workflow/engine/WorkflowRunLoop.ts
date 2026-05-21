@@ -15,7 +15,7 @@ import { decrementStepIteration, incrementStepIteration } from './state-manager.
 import { handleBlocked } from './blocked-handler.js';
 import { isDelegatedWorkflowStep } from '../step-kind.js';
 import { resolvePromotionRuntime } from '../promotion/promotion-runtime.js';
-import { runWithStepSpan } from '../observability/workflowSpans.js';
+import { runWithStepSpan, type StepSpanParams } from '../observability/workflowSpans.js';
 
 const log = createLogger('workflow-run-loop');
 
@@ -23,6 +23,7 @@ interface WorkflowRunLoopDeps {
   state: WorkflowState;
   options: WorkflowEngineOptions;
   getWorkflowName: () => string;
+  getCurrentWorkflowStack: () => StepSpanParams['workflowStack'];
   getCwd: () => string;
   getMaxSteps: () => WorkflowMaxSteps;
   getReportDir: () => string;
@@ -292,6 +293,9 @@ export async function runWorkflowToCompletion(deps: WorkflowRunLoopDeps): Promis
         step,
         iteration: activeIteration,
         stepIteration,
+        instruction: stepInstruction,
+        workflowStack: deps.getCurrentWorkflowStack(),
+        sanitizeText: deps.options.sanitizeObservabilityText,
         providerInfo,
         getFinalStepIteration: () => deps.state.stepIterations.get(step.name),
       }, () => deps.runStep(step, prebuiltInstruction, stepRuntime));
@@ -466,6 +470,11 @@ export async function runSingleWorkflowIteration(deps: WorkflowRunLoopDeps): Pro
     step,
     iteration: activeIteration,
     stepIteration,
+    instruction: prebuiltInstruction
+      ? deps.buildPhase1Instruction(step, prebuiltInstruction, stepRuntime)
+      : '',
+    workflowStack: deps.getCurrentWorkflowStack(),
+    sanitizeText: deps.options.sanitizeObservabilityText,
     providerInfo,
     getFinalStepIteration: () => deps.state.stepIterations.get(step.name),
   }, () => deps.runStep(step, prebuiltInstruction, stepRuntime));

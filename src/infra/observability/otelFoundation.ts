@@ -1,5 +1,7 @@
 import { createRequire } from 'node:module';
+import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { ResolvedObservabilityConfig } from '../../core/models/config-types.js';
+import { SessionLogSpanProcessor, type SessionLogSpanProcessorOptions } from './sessionLogSpanProcessor.js';
 
 const require = createRequire(import.meta.url);
 const { version: TAKT_VERSION } = require('../../../package.json') as { version: string };
@@ -18,18 +20,23 @@ export type OtelFoundationHandle = {
   shutdown(): Promise<void>;
 };
 
+export interface OtelFoundationOptions {
+  sessionLogExporter?: SessionLogSpanProcessorOptions;
+}
+
 let activeSdk: SharedOtelSdk | undefined;
 let startingSdk: Promise<SharedOtelSdk> | undefined;
 let stoppingSdk: Promise<void> | undefined;
 
 export async function initializeOtelFoundation(
   config: ResolvedObservabilityConfig,
+  options: OtelFoundationOptions | undefined = undefined,
 ): Promise<OtelFoundationHandle> {
   if (!config.enabled) {
     return createNoopHandle();
   }
 
-  const shared = await acquireSdk();
+  const shared = await acquireSdk(config, options);
 
   let released = false;
   return {
@@ -43,7 +50,10 @@ export async function initializeOtelFoundation(
   };
 }
 
-async function acquireSdk(): Promise<SharedOtelSdk> {
+async function acquireSdk(
+  config: ResolvedObservabilityConfig,
+  options: OtelFoundationOptions | undefined,
+): Promise<SharedOtelSdk> {
   if (stoppingSdk) {
     await stoppingSdk;
   }
@@ -53,7 +63,7 @@ async function acquireSdk(): Promise<SharedOtelSdk> {
     return activeSdk;
   }
 
-  const shared = await getOrStartSdk();
+  const shared = await getOrStartSdk(config, options);
   shared.refCount += 1;
   return shared;
 }
@@ -64,12 +74,16 @@ function createNoopHandle(): OtelFoundationHandle {
   };
 }
 
-async function getOrStartSdk(): Promise<SharedOtelSdk> {
+async function getOrStartSdk(
+  config: ResolvedObservabilityConfig,
+  options: OtelFoundationOptions | undefined,
+): Promise<SharedOtelSdk> {
   if (activeSdk) {
     return activeSdk;
   }
   if (!startingSdk) {
-    startingSdk = startSdk().then(
+    const spanProcessors = createSpanProcessors(config, options);
+    startingSdk = startSdk(spanProcessors).then(
       (sdk) => {
         const shared = { sdk, refCount: 0 };
         activeSdk = shared;
@@ -85,7 +99,18 @@ async function getOrStartSdk(): Promise<SharedOtelSdk> {
   return startingSdk;
 }
 
-async function startSdk(): Promise<OtelSdk> {
+function createSpanProcessors(
+  config: ResolvedObservabilityConfig,
+  options: OtelFoundationOptions | undefined,
+): SpanProcessor[] {
+  const spanProcessors: SpanProcessor[] = [];
+  if (config.sessionLogExporter && options?.sessionLogExporter) {
+    spanProcessors.push(new SessionLogSpanProcessor(options.sessionLogExporter));
+  }
+  return spanProcessors;
+}
+
+async function startSdk(spanProcessors: SpanProcessor[]): Promise<OtelSdk> {
   const { NodeSDK, resources } = await import('@opentelemetry/sdk-node');
   const sdk = new NodeSDK({
     autoDetectResources: false,
@@ -96,7 +121,7 @@ async function startSdk(): Promise<OtelSdk> {
       'service.name': 'takt',
       'service.version': TAKT_VERSION,
     }),
-    spanProcessors: [],
+    spanProcessors,
   });
   sdk.start();
   return sdk;

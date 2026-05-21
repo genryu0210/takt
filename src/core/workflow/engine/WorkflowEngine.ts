@@ -187,6 +187,7 @@ export class WorkflowEngine extends EventEmitter {
           state: this.state,
           options: this.options,
           getWorkflowName: () => this.config.name,
+          getCurrentWorkflowStack: () => this.sharedRuntime.activeResumePoint?.stack,
           getCwd: () => this.cwd,
           getMaxSteps: () => this.maxSteps,
           getReportDir: () => this.runPaths.reportsAbs,
@@ -221,6 +222,8 @@ export class WorkflowEngine extends EventEmitter {
         (result) => ({
           status: result.state.status,
           abortKind: result.abort?.kind,
+          abortReason: result.abort?.reason,
+          iterations: result.state.iteration,
         }),
       ),
       () => true,
@@ -344,6 +347,7 @@ export class WorkflowEngine extends EventEmitter {
           state: this.state,
           options: this.options,
           getWorkflowName: () => this.config.name,
+          getCurrentWorkflowStack: () => this.sharedRuntime.activeResumePoint?.stack,
           getCwd: () => this.cwd,
           getMaxSteps: () => this.maxSteps,
           getReportDir: () => this.runPaths.reportsAbs,
@@ -375,6 +379,7 @@ export class WorkflowEngine extends EventEmitter {
         (result) => ({
           status: result.isComplete ? this.state.status : 'running',
           nextStep: result.nextStep,
+          iterations: this.state.iteration,
         }),
       ),
       (result, error) => error !== undefined || result?.isComplete === true || this.state.status !== 'running',

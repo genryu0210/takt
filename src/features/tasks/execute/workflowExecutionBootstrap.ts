@@ -55,6 +55,7 @@ export interface WorkflowExecutionBootstrap {
   sessionLog: SessionLog;
   ndjsonLogPath: string;
   sessionLogger: SessionLogger;
+  sanitizeObservabilityText: (text: string) => string;
   shouldNotifyIterationLimit: boolean;
   shouldNotifyWorkflowComplete: boolean;
   shouldNotifyWorkflowAbort: boolean;
@@ -226,7 +227,19 @@ export async function createWorkflowExecutionBootstrap(
     mode: traceReportMode,
     logger: log,
   });
-  const observabilityHandle = await initializeOtelFoundation(globalConfig.observability);
+  const observabilityHandle = await initializeOtelFoundation(
+    globalConfig.observability,
+    globalConfig.observability.enabled && globalConfig.observability.sessionLogExporter
+      ? {
+          sessionLogExporter: {
+            shadowLogPath: join(runPaths.logsAbs, `${workflowSessionId}-otel-session-shadow.jsonl`),
+            task,
+            workflowName: workflowConfig.name,
+            allowSensitiveData,
+          },
+        }
+      : undefined,
+  );
 
   return {
     interactiveUserInput,
@@ -243,6 +256,7 @@ export async function createWorkflowExecutionBootstrap(
     sessionLog,
     ndjsonLogPath,
     sessionLogger,
+    sanitizeObservabilityText: (text) => sanitizeTextForStorage(text, allowSensitiveData),
     shouldNotifyIterationLimit,
     shouldNotifyWorkflowComplete,
     shouldNotifyWorkflowAbort,

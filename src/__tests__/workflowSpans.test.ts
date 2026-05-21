@@ -206,6 +206,32 @@ describe('workflow OpenTelemetry spans', () => {
     expect(spans[1]?.ended).toBe(true);
   });
 
+  it('sanitizes text before attaching session-log parity attributes to step spans', async () => {
+    const { module, spans } = await loadWorkflowSpansWithMockedApi();
+
+    await module.runWithStepSpan({
+      enabled: true,
+      workflowName: 'test-workflow',
+      step: makeStep(),
+      iteration: 1,
+      instruction: 'secret instruction',
+      sanitizeText: (text: string) => text.replaceAll('secret', '[REDACTED]'),
+    }, async () => ({
+      ...makeDoneResult(),
+      response: {
+        ...makeDoneResult().response,
+        content: 'secret content',
+        error: 'secret error',
+      },
+    }));
+
+    expect(spans[0]?.attributes).toMatchObject({
+      'takt.step.instruction': '[REDACTED] instruction',
+      'takt.step.result.content': '[REDACTED] content',
+      'takt.step.result.error': '[REDACTED] error',
+    });
+  });
+
   it('marks thrown step spans as errors without swallowing the original error', async () => {
     const { module, spans } = await loadWorkflowSpansWithMockedApi();
     const error = new Error('agent failed');

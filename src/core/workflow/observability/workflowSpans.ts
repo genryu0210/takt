@@ -1,6 +1,6 @@
 import { context, SpanStatusCode, trace, type Attributes, type Span } from '@opentelemetry/api';
 import { getErrorMessage } from '../../../shared/utils/index.js';
-import type { WorkflowMaxSteps, WorkflowStep } from '../../models/types.js';
+import type { WorkflowMaxSteps, WorkflowResumePointEntry, WorkflowStep } from '../../models/types.js';
 import type { StepProviderInfo, StepRunResult } from '../types.js';
 import { getWorkflowStepKind } from '../step-kind.js';
 
@@ -21,7 +21,9 @@ export interface WorkflowSpanParams {
 export interface WorkflowSpanOutcome {
   status?: string;
   abortKind?: string;
+  abortReason?: string;
   nextStep?: string;
+  iterations?: number;
 }
 
 export interface StepSpanParams {
@@ -30,6 +32,9 @@ export interface StepSpanParams {
   step: WorkflowStep;
   iteration: number;
   stepIteration?: number;
+  instruction?: string;
+  workflowStack?: WorkflowResumePointEntry[];
+  sanitizeText?: (text: string) => string;
   providerInfo?: StepProviderInfo;
   getFinalStepIteration?: () => number | undefined;
 }
@@ -87,10 +92,13 @@ function buildWorkflowAttributes(params: WorkflowSpanParams): Attributes {
 function buildStepAttributes(params: StepSpanParams): Attributes {
   return compactAttributes({
     'takt.workflow.name': params.workflowName,
+    ...workflowStackAttributes(params.workflowStack),
     'takt.step.name': params.step.name,
+    'takt.step.persona': params.step.personaDisplayName,
     'takt.step.type': getWorkflowStepKind(params.step),
     'takt.step.iteration': params.iteration,
     'takt.step.local_iteration': params.stepIteration,
+    'takt.step.instruction': sanitizeSpanText(params, params.instruction),
     ...providerAttributes(params.providerInfo),
   });
 }
@@ -117,7 +125,9 @@ function recordWorkflowOutcome(span: Span, outcome: WorkflowSpanOutcome): void {
   const attributes = compactAttributes({
     'takt.workflow.status': outcome.status,
     'takt.workflow.abort.kind': outcome.abortKind,
+    'takt.workflow.abort.reason': outcome.abortReason,
     'takt.workflow.next_step': outcome.nextStep,
+    'takt.workflow.iterations': outcome.iterations,
   });
   span.setAttributes(attributes);
 
@@ -131,12 +141,42 @@ function recordStepResult(span: Span, params: StepSpanParams, result: StepRunRes
   span.setAttributes(compactAttributes({
     'takt.step.local_iteration': finalStepIteration ?? params.stepIteration,
     'takt.step.status': result.response.status,
+    'takt.step.result.persona': result.response.persona,
+    'takt.step.result.content': sanitizeSpanText(params, result.response.content),
+    'takt.step.result.error': sanitizeSpanText(params, result.response.error),
+    'takt.step.result.failure_category': result.response.failureCategory,
+    'takt.step.result.matched_rule_index': result.response.matchedRuleIndex,
+    'takt.step.result.matched_rule_method': result.response.matchedRuleMethod,
+    'takt.step.result.match_method': toJudgmentMatchMethod(result.response.matchedRuleMethod),
+    'takt.step.result.timestamp': result.response.timestamp.toISOString(),
     ...providerAttributes(result.providerInfo ?? params.providerInfo),
   }));
 
   if (result.response.status === 'error' || result.response.status === 'rate_limited') {
     span.setStatus({ code: SpanStatusCode.ERROR, message: `step ${result.response.status}` });
   }
+}
+
+function sanitizeSpanText(params: StepSpanParams, text: string | undefined): string | undefined {
+  if (text === undefined) {
+    return undefined;
+  }
+  return params.sanitizeText ? params.sanitizeText(text) : text;
+}
+
+function workflowStackAttributes(stack: WorkflowResumePointEntry[] | undefined): AttributeInput {
+  if (!stack || stack.length === 0) {
+    return {};
+  }
+  return {
+    'takt.workflow.current_name': stack[stack.length - 1]?.workflow,
+    'takt.workflow.stack': JSON.stringify(stack.map((entry) => ({
+      workflow: entry.workflow,
+      ...(entry.workflow_ref ? { workflow_ref: entry.workflow_ref } : {}),
+      step: entry.step,
+      kind: entry.kind,
+    }))),
+  };
 }
 
 function providerAttributes(providerInfo: StepProviderInfo | undefined): AttributeInput {
@@ -146,6 +186,24 @@ function providerAttributes(providerInfo: StepProviderInfo | undefined): Attribu
     'takt.model.name': providerInfo?.model,
     'takt.model.source': providerInfo?.modelSource,
   };
+}
+
+function toJudgmentMatchMethod(
+  matchedRuleMethod: string | undefined,
+): string | undefined {
+  if (!matchedRuleMethod) {
+    return undefined;
+  }
+  if (matchedRuleMethod === 'structured_output') {
+    return 'structured_output';
+  }
+  if (matchedRuleMethod === 'ai_judge' || matchedRuleMethod === 'ai_judge_fallback') {
+    return 'ai_judge';
+  }
+  if (matchedRuleMethod === 'phase3_tag' || matchedRuleMethod === 'phase1_tag') {
+    return 'tag_fallback';
+  }
+  return undefined;
 }
 
 function recordSpanError(span: Span, error: unknown): void {

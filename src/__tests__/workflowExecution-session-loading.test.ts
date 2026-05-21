@@ -437,9 +437,38 @@ describe('executeWorkflow session loading', () => {
       projectCwd: '/tmp/project',
     });
 
-    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability);
+    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability, undefined);
     expect(MockWorkflowEngine.lastInstance.receivedOptions.observability).toBe(observability);
     expect(mockObservabilityShutdown).toHaveBeenCalledOnce();
+  });
+
+  it('should pass shadow session log exporter options when observability exporter is enabled', async () => {
+    const observability = {
+      enabled: true,
+      monitor: false,
+      sessionLogExporter: true,
+      usageEventsPhase: false,
+    };
+    vi.mocked(resolveWorkflowConfigValues).mockReturnValue({
+      ...defaultResolvedConfigValues,
+      observability,
+    });
+
+    await executeWorkflow(makeConfig(), 'task', '/tmp/project', {
+      projectCwd: '/tmp/project',
+    });
+
+    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(
+      observability,
+      {
+        sessionLogExporter: {
+          shadowLogPath: '/tmp/project/.takt/runs/test-report-dir/logs/test-session-id-otel-session-shadow.jsonl',
+          task: 'task',
+          workflowName: 'test-workflow',
+          allowSensitiveData: false,
+        },
+      },
+    );
   });
 
   it('should shutdown observability when workflow execution throws', async () => {
@@ -461,7 +490,7 @@ describe('executeWorkflow session loading', () => {
       }),
     ).rejects.toThrow('workflow engine failed');
 
-    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability);
+    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability, undefined);
     expect(mockObservabilityShutdown).toHaveBeenCalledOnce();
   });
 
@@ -485,7 +514,7 @@ describe('executeWorkflow session loading', () => {
       }),
     ).rejects.toThrow('workflow engine failed');
 
-    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability);
+    expect(mockInitializeOtelFoundation).toHaveBeenCalledWith(observability, undefined);
     expect(mockObservabilityShutdown).toHaveBeenCalledOnce();
   });
 
