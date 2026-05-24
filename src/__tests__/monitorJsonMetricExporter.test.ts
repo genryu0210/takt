@@ -147,4 +147,24 @@ describe('MonitorJsonMetricExporter', () => {
       'takt.workflow.status': 'aborted',
     });
   });
+
+  it('does not overwrite a monitor file when an export has no points for that run', () => {
+    const firstMonitorPath = createTempMonitorPath();
+    const exporter = new MonitorJsonMetricExporter({ runId: 'run-1', monitorPath: firstMonitorPath });
+    let firstResult: { code: number; error?: Error } | undefined;
+    let secondResult: { code: number; error?: Error } | undefined;
+
+    exporter.export(makeResourceMetrics(['run-1']), (exportResult) => {
+      firstResult = exportResult;
+    });
+    const firstMonitor = readFileSync(firstMonitorPath, 'utf-8');
+
+    exporter.export(makeResourceMetrics(['run-2']), (exportResult) => {
+      secondResult = exportResult;
+    });
+
+    expect(firstResult).toEqual({ code: 0 });
+    expect(secondResult).toEqual({ code: 0 });
+    expect(readFileSync(firstMonitorPath, 'utf-8')).toBe(firstMonitor);
+  });
 });

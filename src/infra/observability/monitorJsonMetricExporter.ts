@@ -45,6 +45,9 @@ export class MonitorJsonMetricExporter implements PushMetricExporter {
     try {
       for (const options of this.registrations.values()) {
         const filtered = filterResourceMetricsByRun(metrics, options.runId);
+        if (filtered.scopeMetrics.length === 0) {
+          continue;
+        }
         ensureDir(dirname(options.monitorPath));
         writeFileAtomic(
           options.monitorPath,
