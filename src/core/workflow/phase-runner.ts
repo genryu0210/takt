@@ -25,6 +25,8 @@ export interface PhaseRunnerContext {
   lastResponse?: string;
   /** Workflow name for observability spans */
   workflowName?: string;
+  /** Run-local identifier for observability artifact routing */
+  observabilityRunId?: string;
   /** Whether OpenTelemetry shadow spans are enabled */
   observabilityEnabled?: boolean;
   /** Optional text sanitizer for observability span attributes */

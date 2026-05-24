@@ -16,7 +16,12 @@ type OtelSdk = {
 type SharedOtelSdk = {
   sdk: OtelSdk;
   refCount: number;
+  metricReaders: IMetricReader[];
+  sessionLogSpanProcessor?: SessionLogSpanProcessor;
+  monitorJsonMetricExporter?: MonitorJsonMetricExporter;
 };
+
+type StartedOtelSdk = Omit<SharedOtelSdk, 'refCount'>;
 
 export type OtelFoundationHandle = {
   shutdown(): Promise<void>;
@@ -26,6 +31,8 @@ export interface OtelFoundationOptions {
   sessionLogExporter?: SessionLogSpanProcessorOptions;
   monitorJsonExporter?: MonitorJsonMetricExporterOptions;
 }
+
+type OtelRegistration = () => void;
 
 let activeSdk: SharedOtelSdk | undefined;
 let startingSdk: Promise<SharedOtelSdk> | undefined;
@@ -40,6 +47,7 @@ export async function initializeOtelFoundation(
   }
 
   const shared = await acquireSdk(config, options);
+  const registrations = registerRunExporters(shared, options);
 
   let released = false;
   return {
@@ -48,7 +56,16 @@ export async function initializeOtelFoundation(
         return;
       }
       released = true;
-      await releaseSdk(shared);
+      try {
+        if (shared.metricReaders.length > 0) {
+          await forceFlushMetricReaders(shared.metricReaders);
+        }
+      } finally {
+        for (const unregister of registrations.splice(0).reverse()) {
+          unregister();
+        }
+        await releaseSdk(shared);
+      }
     },
   };
 }
@@ -86,8 +103,8 @@ async function getOrStartSdk(
   }
   if (!startingSdk) {
     startingSdk = startSdk(config, options).then(
-      (sdk) => {
-        const shared = { sdk, refCount: 0 };
+      (started) => {
+        const shared = { ...started, refCount: 0 };
         activeSdk = shared;
         startingSdk = undefined;
         return shared;
@@ -101,39 +118,59 @@ async function getOrStartSdk(
   return startingSdk;
 }
 
-function createSpanProcessors(
+function registerRunExporters(
+  shared: SharedOtelSdk,
+  options: OtelFoundationOptions | undefined,
+): OtelRegistration[] {
+  const registrations: OtelRegistration[] = [];
+  if (options?.sessionLogExporter && shared.sessionLogSpanProcessor) {
+    registrations.push(shared.sessionLogSpanProcessor.register(options.sessionLogExporter));
+  }
+  if (options?.monitorJsonExporter && shared.monitorJsonMetricExporter) {
+    registrations.push(shared.monitorJsonMetricExporter.register(options.monitorJsonExporter));
+  }
+  return registrations;
+}
+
+function createSpanProcessorState(
   config: ResolvedObservabilityConfig,
   options: OtelFoundationOptions | undefined,
-): SpanProcessor[] {
+): { spanProcessors: SpanProcessor[]; sessionLogSpanProcessor?: SessionLogSpanProcessor } {
   const spanProcessors: SpanProcessor[] = [];
-  if (config.sessionLogExporter && options?.sessionLogExporter) {
-    spanProcessors.push(new SessionLogSpanProcessor(options.sessionLogExporter));
+  let sessionLogSpanProcessor: SessionLogSpanProcessor | undefined;
+  if (config.sessionLogExporter || options?.sessionLogExporter) {
+    sessionLogSpanProcessor = new SessionLogSpanProcessor();
+    spanProcessors.push(sessionLogSpanProcessor);
   }
-  return spanProcessors;
+  return { spanProcessors, sessionLogSpanProcessor };
 }
 
 async function createMetricReaders(
   config: ResolvedObservabilityConfig,
   options: OtelFoundationOptions | undefined,
-): Promise<IMetricReader[]> {
-  if (!config.monitor || !options?.monitorJsonExporter) {
-    return [];
+): Promise<{ metricReaders: IMetricReader[]; monitorJsonMetricExporter?: MonitorJsonMetricExporter }> {
+  if (!config.monitor && !options?.monitorJsonExporter) {
+    return { metricReaders: [] };
   }
   const { PeriodicExportingMetricReader } = await import('@opentelemetry/sdk-metrics');
-  return [
-    new PeriodicExportingMetricReader({
-      exporter: new MonitorJsonMetricExporter(options.monitorJsonExporter),
-      exportIntervalMillis: 1000,
-    }),
-  ];
+  const monitorJsonMetricExporter = new MonitorJsonMetricExporter();
+  return {
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: monitorJsonMetricExporter,
+        exportIntervalMillis: 1000,
+      }),
+    ],
+    monitorJsonMetricExporter,
+  };
 }
 
 async function startSdk(
   config: ResolvedObservabilityConfig,
   options: OtelFoundationOptions | undefined,
-): Promise<OtelSdk> {
-  const spanProcessors = createSpanProcessors(config, options);
-  const metricReaders = await createMetricReaders(config, options);
+): Promise<StartedOtelSdk> {
+  const { spanProcessors, sessionLogSpanProcessor } = createSpanProcessorState(config, options);
+  const { metricReaders, monitorJsonMetricExporter } = await createMetricReaders(config, options);
   const { NodeSDK, resources } = await import('@opentelemetry/sdk-node');
   const sdk = new NodeSDK({
     autoDetectResources: false,
@@ -147,7 +184,16 @@ async function startSdk(
     spanProcessors,
   });
   sdk.start();
-  return sdk;
+  return {
+    sdk,
+    metricReaders,
+    sessionLogSpanProcessor,
+    monitorJsonMetricExporter,
+  };
+}
+
+async function forceFlushMetricReaders(metricReaders: IMetricReader[]): Promise<void> {
+  await Promise.all(metricReaders.map((reader) => reader.forceFlush()));
 }
 
 async function releaseSdk(shared: SharedOtelSdk): Promise<void> {

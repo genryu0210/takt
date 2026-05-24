@@ -11,44 +11,67 @@ import {
 const log = createLogger('session-log-span-processor');
 
 export interface SessionLogSpanProcessorOptions {
+  runId: string;
   shadowLogPath: string;
   sanitizedTask: string;
   workflowName: string;
 }
 
 export class SessionLogSpanProcessor implements SpanProcessor {
-  private readonly shadowLogPath: string;
+  private readonly registrations = new Map<string, SessionLogSpanProcessorOptions>();
 
-  constructor(options: SessionLogSpanProcessorOptions) {
-    this.shadowLogPath = options.shadowLogPath;
+  constructor(options?: SessionLogSpanProcessorOptions) {
+    if (options) {
+      this.register(options);
+    }
+  }
+
+  register(options: SessionLogSpanProcessorOptions): () => void {
+    this.registrations.set(options.runId, options);
     const startRecord: NdjsonWorkflowStart = {
       type: 'workflow_start',
       task: options.sanitizedTask,
       workflowName: options.workflowName,
       startTime: new Date().toISOString(),
     };
-    this.safeAppend(startRecord);
+    this.safeAppend(options, startRecord);
+    return () => {
+      this.registrations.delete(options.runId);
+    };
   }
 
   onStart(span: Span, _parentContext: Context): void {
+    const options = this.optionsForSpan(span);
+    if (!options) {
+      return;
+    }
     const record = mapSpanStartToNdjson(toSpanSnapshot(span));
-    this.safeAppend(record);
+    this.safeAppend(options, record);
   }
 
   onEnd(span: ReadableSpan): void {
+    const options = this.optionsForSpan(span);
+    if (!options) {
+      return;
+    }
     const record = mapSpanEndToNdjson(toSpanSnapshot(span));
-    this.safeAppend(record);
+    this.safeAppend(options, record);
   }
 
-  private safeAppend(record: NdjsonRecord | undefined): void {
+  private optionsForSpan(span: ReadableSpan): SessionLogSpanProcessorOptions | undefined {
+    const runId = span.attributes['takt.run.id'];
+    return typeof runId === 'string' ? this.registrations.get(runId) : undefined;
+  }
+
+  private safeAppend(options: SessionLogSpanProcessorOptions, record: NdjsonRecord | undefined): void {
     if (!record) {
       return;
     }
     try {
-      appendNdjsonLine(this.shadowLogPath, record);
+      appendNdjsonLine(options.shadowLogPath, record);
     } catch (error) {
       log.error('Failed to append shadow session log record', {
-        shadowLogPath: this.shadowLogPath,
+        shadowLogPath: options.shadowLogPath,
         recordType: record.type,
         error,
       });
@@ -57,7 +80,9 @@ export class SessionLogSpanProcessor implements SpanProcessor {
 
   async forceFlush(): Promise<void> {}
 
-  async shutdown(): Promise<void> {}
+  async shutdown(): Promise<void> {
+    this.registrations.clear();
+  }
 }
 
 function toSpanSnapshot(span: ReadableSpan): SpanSnapshot {

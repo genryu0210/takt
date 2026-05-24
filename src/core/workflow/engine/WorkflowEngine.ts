@@ -300,6 +300,7 @@ export class WorkflowEngine extends EventEmitter {
   private buildWorkflowSpanParams(runMode: WorkflowSpanParams['runMode']): WorkflowSpanParams {
     return {
       enabled: this.options.observability?.enabled === true,
+      runId: this.options.observabilityRunId,
       workflowName: this.config.name,
       initialStep: this.config.initialStep,
       stepCount: this.config.steps.length,

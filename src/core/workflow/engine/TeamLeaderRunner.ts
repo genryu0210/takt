@@ -32,6 +32,7 @@ export interface TeamLeaderRunnerDeps {
   readonly getWorkflowName?: () => string;
   readonly getInteractive: () => boolean;
   readonly observabilityEnabled: boolean;
+  readonly observabilityRunId?: string;
   readonly sanitizeObservabilityText?: (text: string) => string;
   readonly onPhaseStart?: (
     step: WorkflowStep,
@@ -104,6 +105,7 @@ export class TeamLeaderRunner {
     const parts = await runWithPhaseSpan(
       {
         enabled: this.deps.observabilityEnabled,
+        runId: this.deps.observabilityRunId,
         workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
         step: leaderStep,
         iteration: parentIteration,

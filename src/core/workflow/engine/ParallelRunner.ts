@@ -69,6 +69,7 @@ export interface ParallelRunnerDeps {
   readonly getWorkflowName?: () => string;
   readonly getInteractive: () => boolean;
   readonly observabilityEnabled: boolean;
+  readonly observabilityRunId?: string;
   readonly sanitizeObservabilityText?: (text: string) => string;
   readonly detectRuleIndex: (content: string, stepName: string) => number;
   readonly structuredCaller: StructuredCaller;
@@ -203,6 +204,7 @@ export class ParallelRunner {
         };
         const subResponse = await runWithPhaseSpan({
           enabled: this.deps.observabilityEnabled,
+          runId: this.deps.observabilityRunId,
           workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
           step: subStep,
           iteration: parentIteration,

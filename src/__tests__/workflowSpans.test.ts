@@ -162,6 +162,7 @@ describe('workflow OpenTelemetry spans', () => {
 
     await module.runWithWorkflowSpan({
       enabled: true,
+      runId: 'run-1',
       workflowName: 'test-workflow',
       initialStep: 'implement',
       stepCount: 2,
@@ -173,6 +174,7 @@ describe('workflow OpenTelemetry spans', () => {
     expect(spans).toHaveLength(1);
     expect(spans[0]?.name).toBe('workflow.test-workflow');
     expect(spans[0]?.attributes).toMatchObject({
+      'takt.run.id': 'run-1',
       'takt.workflow.name': 'test-workflow',
       'takt.workflow.initial_step': 'implement',
       'takt.workflow.step_count': 2,
@@ -188,6 +190,7 @@ describe('workflow OpenTelemetry spans', () => {
         name: 'takt.workflow.runs',
         value: 1,
         attributes: expect.objectContaining({
+          'takt.run.id': 'run-1',
           'takt.workflow.name': 'test-workflow',
           'takt.workflow.status': 'completed',
         }) as unknown,
@@ -196,6 +199,7 @@ describe('workflow OpenTelemetry spans', () => {
         instrument: 'histogram',
         name: 'takt.workflow.duration',
         attributes: expect.objectContaining({
+          'takt.run.id': 'run-1',
           'takt.workflow.name': 'test-workflow',
           'takt.workflow.status': 'completed',
         }) as unknown,

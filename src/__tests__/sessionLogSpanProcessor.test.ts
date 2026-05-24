@@ -32,6 +32,7 @@ describe('SessionLogSpanProcessor', () => {
   it('writes a shadow session log from workflow and step spans', () => {
     const shadowLogPath = createTempLogPath();
     const processor = new SessionLogSpanProcessor({
+      runId: 'run-1',
       shadowLogPath,
       sanitizedTask: 'task',
       workflowName: 'default',
@@ -41,6 +42,7 @@ describe('SessionLogSpanProcessor', () => {
       startTime: [1_778_777_200, 0],
       endTime: [1_778_777_205, 0],
       attributes: {
+        'takt.run.id': 'run-1',
         'takt.step.name': 'implement',
         'takt.step.persona': 'coder',
         'takt.step.iteration': 1,
@@ -58,6 +60,7 @@ describe('SessionLogSpanProcessor', () => {
       name: 'workflow.default',
       endTime: [1_778_777_210, 0],
       attributes: {
+        'takt.run.id': 'run-1',
         'takt.workflow.status': 'completed',
         'takt.workflow.iterations': 1,
       },
@@ -76,6 +79,7 @@ describe('SessionLogSpanProcessor', () => {
 
     expect(() => {
       const processor = new SessionLogSpanProcessor({
+        runId: 'run-1',
         shadowLogPath,
         sanitizedTask: 'task',
         workflowName: 'default',
@@ -83,6 +87,7 @@ describe('SessionLogSpanProcessor', () => {
       processor.onStart({
         name: 'step.implement',
         attributes: {
+          'takt.run.id': 'run-1',
           'takt.step.name': 'implement',
           'takt.step.persona': 'coder',
           'takt.step.iteration': 1,
@@ -91,10 +96,68 @@ describe('SessionLogSpanProcessor', () => {
       processor.onEnd({
         name: 'workflow.default',
         attributes: {
+          'takt.run.id': 'run-1',
           'takt.workflow.status': 'completed',
           'takt.workflow.iterations': 1,
         },
       } as unknown as ReadableSpan);
     }).not.toThrow();
+  });
+
+  it('routes span records to the matching registered run', () => {
+    const firstLogPath = createTempLogPath();
+    const secondLogPath = createTempLogPath();
+    const processor = new SessionLogSpanProcessor();
+
+    processor.register({
+      runId: 'run-1',
+      shadowLogPath: firstLogPath,
+      sanitizedTask: 'first task',
+      workflowName: 'default',
+    });
+    processor.register({
+      runId: 'run-2',
+      shadowLogPath: secondLogPath,
+      sanitizedTask: 'second task',
+      workflowName: 'default',
+    });
+
+    processor.onEnd({
+      name: 'workflow.default',
+      attributes: {
+        'takt.run.id': 'run-2',
+        'takt.workflow.status': 'completed',
+        'takt.workflow.iterations': 1,
+      },
+    } as unknown as ReadableSpan);
+    processor.onEnd({
+      name: 'workflow.default',
+      attributes: {
+        'takt.run.id': 'run-1',
+        'takt.workflow.status': 'aborted',
+        'takt.workflow.iterations': 2,
+      },
+    } as unknown as ReadableSpan);
+
+    expect(readRecords(firstLogPath)).toEqual([
+      expect.objectContaining({
+        type: 'workflow_start',
+        task: 'first task',
+      }),
+      expect.objectContaining({
+        type: 'workflow_abort',
+        iterations: 2,
+      }),
+    ]);
+    expect(readRecords(secondLogPath)).toEqual([
+      expect.objectContaining({
+        type: 'workflow_start',
+        task: 'second task',
+      }),
+      expect.objectContaining({
+        type: 'workflow_complete',
+        iterations: 1,
+      }),
+    ]);
   });
 });

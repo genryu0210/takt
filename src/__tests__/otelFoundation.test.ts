@@ -47,16 +47,25 @@ const enabledMonitorObservability: ObservabilityConfigForTest = {
   usageEventsPhase: false,
 };
 
+const enabledAllObservability: ObservabilityConfigForTest = {
+  enabled: true,
+  monitor: true,
+  sessionLogExporter: true,
+  usageEventsPhase: false,
+};
+
 async function loadFoundationWithMockedSdk(): Promise<{
   initializeOtelFoundation: (
     config: ObservabilityConfigForTest,
     options?: {
       sessionLogExporter?: {
+        runId: string;
         shadowLogPath: string;
         sanitizedTask: string;
         workflowName: string;
       };
       monitorJsonExporter?: {
+        runId: string;
         monitorPath: string;
       };
     },
@@ -108,6 +117,8 @@ async function loadFoundationWithMockedSdk(): Promise<{
           this.options = options;
           metricReaderOptions.push(options);
         }
+
+        async forceFlush(): Promise<void> {}
       },
       AggregationTemporality: {
         DELTA: 0,
@@ -127,11 +138,13 @@ async function loadFoundationWithMockedSdk(): Promise<{
       config: ObservabilityConfigForTest,
       options?: {
         sessionLogExporter?: {
+          runId: string;
           shadowLogPath: string;
           sanitizedTask: string;
           workflowName: string;
         };
         monitorJsonExporter?: {
+          runId: string;
           monitorPath: string;
         };
       },
@@ -201,6 +214,7 @@ describe('otel foundation', () => {
         enabledSessionLogExporterObservability,
         {
           sessionLogExporter: {
+            runId: 'run-1',
             shadowLogPath,
             sanitizedTask: 'secret task',
             workflowName: 'default',
@@ -236,6 +250,7 @@ describe('otel foundation', () => {
         enabledMonitorObservability,
         {
           monitorJsonExporter: {
+            runId: 'run-1',
             monitorPath,
           },
         },
@@ -248,6 +263,144 @@ describe('otel foundation', () => {
       expect(foundation.metricReaderOptions[0]?.exporter).toBeDefined();
       expect(foundation.constructedOptions[0]?.metricReaders).toHaveLength(1);
     } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('should route run-local session logs and monitor files through the shared SDK', async () => {
+    const foundation = await loadFoundationWithMockedSdk();
+    const tempDir = mkdtempSync(join(tmpdir(), 'takt-otel-run-routing-'));
+    const firstShadowLogPath = join(tempDir, 'first-otel-session-shadow.jsonl');
+    const secondShadowLogPath = join(tempDir, 'second-otel-session-shadow.jsonl');
+    const firstMonitorPath = join(tempDir, 'first-monitor.json');
+    const secondMonitorPath = join(tempDir, 'second-monitor.json');
+    let first: { shutdown(): Promise<void> } | undefined;
+    let second: { shutdown(): Promise<void> } | undefined;
+
+    try {
+      first = await foundation.initializeOtelFoundation(
+        enabledAllObservability,
+        {
+          sessionLogExporter: {
+            runId: 'run-1',
+            shadowLogPath: firstShadowLogPath,
+            sanitizedTask: 'first task',
+            workflowName: 'default',
+          },
+          monitorJsonExporter: {
+            runId: 'run-1',
+            monitorPath: firstMonitorPath,
+          },
+        },
+      );
+      second = await foundation.initializeOtelFoundation(
+        enabledAllObservability,
+        {
+          sessionLogExporter: {
+            runId: 'run-2',
+            shadowLogPath: secondShadowLogPath,
+            sanitizedTask: 'second task',
+            workflowName: 'default',
+          },
+          monitorJsonExporter: {
+            runId: 'run-2',
+            monitorPath: secondMonitorPath,
+          },
+        },
+      );
+
+      const processor = foundation.constructedOptions[0]?.spanProcessors?.[0] as {
+        onEnd(span: unknown): void;
+      };
+      processor.onEnd({
+        name: 'workflow.default',
+        attributes: {
+          'takt.run.id': 'run-2',
+          'takt.workflow.status': 'completed',
+          'takt.workflow.iterations': 1,
+        },
+      });
+      processor.onEnd({
+        name: 'workflow.default',
+        attributes: {
+          'takt.run.id': 'run-1',
+          'takt.workflow.status': 'aborted',
+          'takt.workflow.iterations': 2,
+        },
+      });
+
+      const exporter = foundation.metricReaderOptions[0]?.exporter as {
+        export(metrics: unknown, callback: (result: { code: number; error?: Error }) => void): void;
+      };
+      let exportResult: { code: number; error?: Error } | undefined;
+      exporter.export({
+        resource: {
+          attributes: {
+            'service.name': 'takt',
+          },
+        },
+        scopeMetrics: [
+          {
+            scope: { name: 'takt.workflow' },
+            metrics: [
+              {
+                descriptor: {
+                  name: 'takt.workflow.runs',
+                  description: 'Workflow executions by status',
+                  unit: '',
+                  valueType: 1,
+                },
+                dataPointType: 3,
+                aggregationTemporality: 1,
+                isMonotonic: true,
+                dataPoints: [
+                  {
+                    startTime: [1_778_777_200, 0],
+                    endTime: [1_778_777_205, 0],
+                    attributes: {
+                      'takt.run.id': 'run-1',
+                      'takt.workflow.status': 'aborted',
+                    },
+                    value: 1,
+                  },
+                  {
+                    startTime: [1_778_777_200, 0],
+                    endTime: [1_778_777_205, 0],
+                    attributes: {
+                      'takt.run.id': 'run-2',
+                      'takt.workflow.status': 'completed',
+                    },
+                    value: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }, (result) => {
+        exportResult = result;
+      });
+
+      expect(exportResult).toEqual({ code: 0 });
+      expect(readFileSync(firstShadowLogPath, 'utf-8')).toContain('first task');
+      expect(readFileSync(firstShadowLogPath, 'utf-8')).toContain('workflow_abort');
+      expect(readFileSync(firstShadowLogPath, 'utf-8')).not.toContain('second task');
+      expect(readFileSync(secondShadowLogPath, 'utf-8')).toContain('second task');
+      expect(readFileSync(secondShadowLogPath, 'utf-8')).toContain('workflow_complete');
+      expect(readFileSync(secondShadowLogPath, 'utf-8')).not.toContain('first task');
+      expect(readFileSync(firstMonitorPath, 'utf-8')).toContain('"takt.run.id": "run-1"');
+      expect(readFileSync(firstMonitorPath, 'utf-8')).not.toContain('"takt.run.id": "run-2"');
+      expect(readFileSync(secondMonitorPath, 'utf-8')).toContain('"takt.run.id": "run-2"');
+      expect(readFileSync(secondMonitorPath, 'utf-8')).not.toContain('"takt.run.id": "run-1"');
+
+      await first?.shutdown();
+      await second?.shutdown();
+
+      expect(foundation.constructedOptions).toHaveLength(1);
+      expect(foundation.shutdownMock).toHaveBeenCalledOnce();
+    } finally {
+      await first?.shutdown();
+      await second?.shutdown();
       rmSync(tempDir, { recursive: true, force: true });
     }
   });

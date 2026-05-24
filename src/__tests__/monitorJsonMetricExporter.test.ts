@@ -13,7 +13,7 @@ function createTempMonitorPath(): string {
   return join(dir, 'monitor.json');
 }
 
-function makeResourceMetrics(): ResourceMetrics {
+function makeResourceMetrics(runIds: string[] = ['run-1']): ResourceMetrics {
   return {
     resource: {
       attributes: {
@@ -35,17 +35,16 @@ function makeResourceMetrics(): ResourceMetrics {
             dataPointType: DataPointType.SUM,
             aggregationTemporality: AggregationTemporality.CUMULATIVE,
             isMonotonic: true,
-            dataPoints: [
-              {
-                startTime: [1_778_777_200, 0],
-                endTime: [1_778_777_205, 0],
-                attributes: {
-                  'takt.workflow.name': 'default',
-                  'takt.workflow.status': 'completed',
-                },
-                value: 1,
+            dataPoints: runIds.map((runId, index) => ({
+              startTime: [1_778_777_200, 0],
+              endTime: [1_778_777_205, 0],
+              attributes: {
+                'takt.run.id': runId,
+                'takt.workflow.name': 'default',
+                'takt.workflow.status': index === 0 ? 'completed' : 'aborted',
               },
-            ],
+              value: 1,
+            })),
           },
         ],
       },
@@ -63,7 +62,7 @@ afterEach(() => {
 describe('MonitorJsonMetricExporter', () => {
   it('writes the latest resource metrics as monitor.json', async () => {
     const monitorPath = createTempMonitorPath();
-    const exporter = new MonitorJsonMetricExporter({ monitorPath });
+    const exporter = new MonitorJsonMetricExporter({ runId: 'run-1', monitorPath });
     let result: { code: number; error?: Error } | undefined;
 
     exporter.export(makeResourceMetrics(), (exportResult) => {
@@ -105,7 +104,7 @@ describe('MonitorJsonMetricExporter', () => {
   });
 
   it('rejects exports after shutdown', async () => {
-    const exporter = new MonitorJsonMetricExporter({ monitorPath: createTempMonitorPath() });
+    const exporter = new MonitorJsonMetricExporter({ runId: 'run-1', monitorPath: createTempMonitorPath() });
     await exporter.shutdown();
     let result: { code: number; error?: Error } | undefined;
 
@@ -115,5 +114,37 @@ describe('MonitorJsonMetricExporter', () => {
 
     expect(result?.code).toBe(1);
     expect(result?.error?.message).toContain('shut down');
+  });
+
+  it('routes metric exports to the matching registered run', () => {
+    const firstMonitorPath = createTempMonitorPath();
+    const secondMonitorPath = createTempMonitorPath();
+    const exporter = new MonitorJsonMetricExporter();
+
+    exporter.register({ runId: 'run-1', monitorPath: firstMonitorPath });
+    exporter.register({ runId: 'run-2', monitorPath: secondMonitorPath });
+
+    let result: { code: number; error?: Error } | undefined;
+    exporter.export(makeResourceMetrics(['run-1', 'run-2']), (exportResult) => {
+      result = exportResult;
+    });
+
+    expect(result).toEqual({ code: 0 });
+    const firstMonitor = JSON.parse(readFileSync(firstMonitorPath, 'utf-8')) as {
+      scopeMetrics: Array<{ metrics: Array<{ points: Array<{ attributes: Record<string, unknown> }> }> }>;
+    };
+    const secondMonitor = JSON.parse(readFileSync(secondMonitorPath, 'utf-8')) as {
+      scopeMetrics: Array<{ metrics: Array<{ points: Array<{ attributes: Record<string, unknown> }> }> }>;
+    };
+    expect(firstMonitor.scopeMetrics[0]?.metrics[0]?.points).toHaveLength(1);
+    expect(firstMonitor.scopeMetrics[0]?.metrics[0]?.points[0]?.attributes).toMatchObject({
+      'takt.run.id': 'run-1',
+      'takt.workflow.status': 'completed',
+    });
+    expect(secondMonitor.scopeMetrics[0]?.metrics[0]?.points).toHaveLength(1);
+    expect(secondMonitor.scopeMetrics[0]?.metrics[0]?.points[0]?.attributes).toMatchObject({
+      'takt.run.id': 'run-2',
+      'takt.workflow.status': 'aborted',
+    });
   });
 });

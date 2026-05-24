@@ -57,6 +57,7 @@ export interface StepExecutorDeps {
   readonly getWorkflowName: () => string;
   readonly getWorkflowDescription: () => string | undefined;
   readonly getRetryNote: () => string | undefined;
+  readonly getObservabilityRunId?: () => string | undefined;
   readonly observabilityEnabled?: () => boolean;
   readonly sanitizeObservabilityText?: (text: string) => string;
   readonly detectRuleIndex: (content: string, stepName: string) => number;
@@ -545,6 +546,7 @@ export class StepExecutor {
     };
     let response = await runWithPhaseSpan({
       enabled: this.deps.observabilityEnabled?.() === true,
+      runId: this.deps.getObservabilityRunId?.(),
       workflowName: this.deps.getWorkflowName(),
       step,
       iteration: state.iteration,

@@ -305,6 +305,7 @@ export class OptionsBuilder {
       interactive: this.engineOptions.interactive,
       lastResponse,
       workflowName: this.getWorkflowName(),
+      observabilityRunId: this.engineOptions.observabilityRunId,
       observabilityEnabled: this.engineOptions.observability?.enabled === true,
       sanitizeObservabilityText: this.engineOptions.sanitizeObservabilityText,
       onStream: this.engineOptions.onStream,

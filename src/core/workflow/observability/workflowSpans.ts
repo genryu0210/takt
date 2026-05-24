@@ -35,6 +35,7 @@ type AttributeInput = Record<string, string | number | boolean | undefined>;
 
 export interface WorkflowSpanParams {
   enabled: boolean;
+  runId?: string;
   workflowName: string;
   initialStep: string;
   stepCount: number;
@@ -53,6 +54,7 @@ export interface WorkflowSpanOutcome {
 
 export interface StepSpanParams {
   enabled: boolean;
+  runId?: string;
   workflowName: string;
   step: WorkflowStep;
   iteration: number;
@@ -66,6 +68,7 @@ export interface StepSpanParams {
 
 export interface PhaseSpanParams {
   enabled: boolean;
+  runId?: string;
   workflowName: string;
   step: WorkflowStep;
   iteration?: number;
@@ -87,6 +90,7 @@ export interface PhaseSpanOutcome {
 
 export interface JudgeStageSpanParams {
   enabled: boolean;
+  runId?: string;
   workflowName: string;
   step: WorkflowStep;
   iteration?: number;
@@ -200,6 +204,7 @@ export function recordJudgeStageSpan(params: JudgeStageSpanParams): void {
 
 function buildWorkflowAttributes(params: WorkflowSpanParams): Attributes {
   return compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.workflow.initial_step': params.initialStep,
     'takt.workflow.step_count': params.stepCount,
@@ -211,6 +216,7 @@ function buildWorkflowAttributes(params: WorkflowSpanParams): Attributes {
 
 function buildStepAttributes(params: StepSpanParams): Attributes {
   return compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     ...workflowStackAttributes(params.workflowStack),
     'takt.step.name': params.step.name,
@@ -225,6 +231,7 @@ function buildStepAttributes(params: StepSpanParams): Attributes {
 
 function buildPhaseAttributes(params: PhaseSpanParams): Attributes {
   return compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
     'takt.step.persona': params.step.personaDisplayName,
@@ -240,6 +247,7 @@ function buildPhaseAttributes(params: PhaseSpanParams): Attributes {
 
 function buildJudgeStageAttributes(params: JudgeStageSpanParams): Attributes {
   return compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
     'takt.step.persona': params.step.personaDisplayName,
@@ -295,6 +303,7 @@ function recordWorkflowMetrics(
   durationMs: number,
 ): void {
   const attributes = compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.workflow.status': outcome.status ?? 'unknown',
     'takt.workflow.abort.kind': outcome.abortKind,
@@ -333,6 +342,7 @@ function recordStepMetrics(
 ): void {
   const providerInfo = result?.providerInfo ?? params.providerInfo;
   const attributes = compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
     'takt.step.type': getWorkflowStepKind(params.step),
@@ -364,6 +374,7 @@ function recordPhaseMetrics(
   durationMs: number,
 ): void {
   const attributes = compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
     'takt.step.type': getWorkflowStepKind(params.step),
@@ -378,6 +389,7 @@ function recordPhaseMetrics(
 
 function recordJudgeStageMetrics(params: JudgeStageSpanParams): void {
   judgeStageCounter.add(1, compactAttributes({
+    'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
     'takt.step.type': getWorkflowStepKind(params.step),

@@ -233,6 +233,7 @@ export async function createWorkflowExecutionBootstrap(
         ...(globalConfig.observability.sessionLogExporter
           ? {
               sessionLogExporter: {
+                runId: runSlug,
                 shadowLogPath: join(runPaths.logsAbs, `${workflowSessionId}-otel-session-shadow.jsonl`),
                 sanitizedTask: sanitizeTextForStorage(task, allowSensitiveData),
                 workflowName: workflowConfig.name,
@@ -240,7 +241,7 @@ export async function createWorkflowExecutionBootstrap(
             }
           : {}),
         ...(globalConfig.observability.monitor
-          ? { monitorJsonExporter: { monitorPath: join(runPaths.runRootAbs, 'monitor.json') } }
+          ? { monitorJsonExporter: { runId: runSlug, monitorPath: join(runPaths.runRootAbs, 'monitor.json') } }
           : {}),
       }
     : undefined;

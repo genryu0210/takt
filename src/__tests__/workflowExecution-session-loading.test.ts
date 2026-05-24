@@ -462,6 +462,7 @@ describe('executeWorkflow session loading', () => {
       observability,
       {
         sessionLogExporter: {
+          runId: 'test-report-dir',
           shadowLogPath: '/tmp/project/.takt/runs/test-report-dir/logs/test-session-id-otel-session-shadow.jsonl',
           sanitizedTask: 'task',
           workflowName: 'test-workflow',
@@ -490,6 +491,7 @@ describe('executeWorkflow session loading', () => {
       observability,
       {
         monitorJsonExporter: {
+          runId: 'test-report-dir',
           monitorPath: '/tmp/project/.takt/runs/test-report-dir/monitor.json',
         },
       },

@@ -289,6 +289,7 @@ export async function runWorkflowToCompletion(deps: WorkflowRunLoopDeps): Promis
     try {
       const result = await runWithStepSpan({
         enabled: deps.options.observability?.enabled === true,
+        runId: deps.options.observabilityRunId,
         workflowName: deps.getWorkflowName(),
         step,
         iteration: activeIteration,
@@ -466,6 +467,7 @@ export async function runSingleWorkflowIteration(deps: WorkflowRunLoopDeps): Pro
   const providerInfo = deps.resolveStepProviderModel(step, stepRuntime);
   const result = await runWithStepSpan({
     enabled: deps.options.observability?.enabled === true,
+    runId: deps.options.observabilityRunId,
     workflowName: deps.getWorkflowName(),
     step,
     iteration: activeIteration,

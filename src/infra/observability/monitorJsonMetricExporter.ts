@@ -13,17 +13,27 @@ import { createLogger } from '../../shared/utils/debug.js';
 const log = createLogger('monitor-json-metric-exporter');
 
 export interface MonitorJsonMetricExporterOptions {
+  runId: string;
   monitorPath: string;
 }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export class MonitorJsonMetricExporter implements PushMetricExporter {
-  private readonly monitorPath: string;
+  private readonly registrations = new Map<string, MonitorJsonMetricExporterOptions>();
   private shutdownRequested = false;
 
-  constructor(options: MonitorJsonMetricExporterOptions) {
-    this.monitorPath = options.monitorPath;
+  constructor(options?: MonitorJsonMetricExporterOptions) {
+    if (options) {
+      this.register(options);
+    }
+  }
+
+  register(options: MonitorJsonMetricExporterOptions): () => void {
+    this.registrations.set(options.runId, options);
+    return () => {
+      this.registrations.delete(options.runId);
+    };
   }
 
   export(metrics: ResourceMetrics, resultCallback: Parameters<PushMetricExporter['export']>[1]): void {
@@ -33,16 +43,18 @@ export class MonitorJsonMetricExporter implements PushMetricExporter {
     }
 
     try {
-      ensureDir(dirname(this.monitorPath));
-      writeFileAtomic(
-        this.monitorPath,
-        `${JSON.stringify(serializeResourceMetrics(metrics), null, 2)}\n`,
-      );
+      for (const options of this.registrations.values()) {
+        const filtered = filterResourceMetricsByRun(metrics, options.runId);
+        ensureDir(dirname(options.monitorPath));
+        writeFileAtomic(
+          options.monitorPath,
+          `${JSON.stringify(serializeResourceMetrics(filtered), null, 2)}\n`,
+        );
+      }
       resultCallback({ code: 0 });
     } catch (error) {
       const wrapped = error instanceof Error ? error : new Error(String(error));
       log.error('Failed to write monitor.json metrics', {
-        monitorPath: this.monitorPath,
         error: wrapped.message,
       });
       resultCallback({ code: 1, error: wrapped });
@@ -53,7 +65,25 @@ export class MonitorJsonMetricExporter implements PushMetricExporter {
 
   async shutdown(): Promise<void> {
     this.shutdownRequested = true;
+    this.registrations.clear();
   }
+}
+
+function filterResourceMetricsByRun(metrics: ResourceMetrics, runId: string): ResourceMetrics {
+  return {
+    ...metrics,
+    scopeMetrics: metrics.scopeMetrics
+      .map((scopeMetrics) => ({
+        ...scopeMetrics,
+        metrics: scopeMetrics.metrics
+          .map((metric) => ({
+            ...metric,
+            dataPoints: metric.dataPoints.filter((point) => point.attributes['takt.run.id'] === runId),
+          }))
+          .filter((metric) => metric.dataPoints.length > 0) as MetricData[],
+      }))
+      .filter((scopeMetrics) => scopeMetrics.metrics.length > 0),
+  };
 }
 
 function serializeResourceMetrics(metrics: ResourceMetrics): JsonValue {
