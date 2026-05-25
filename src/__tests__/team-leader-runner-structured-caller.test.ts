@@ -72,6 +72,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -235,6 +236,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -352,6 +354,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         phase1ProcessSafetyByStep: createProcessSafetyByStep(4242),
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'takt-default',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: {
@@ -465,6 +468,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -606,6 +610,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -707,6 +712,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -813,6 +819,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         structuredCaller,
       },
       getCwd: () => '/tmp/project',
+      getWorkflowName: () => 'workflow',
       getInteractive: () => false,
     } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
       engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
@@ -902,6 +909,7 @@ describe('TeamLeaderRunner with structuredCaller', () => {
         },
         onPhaseStart,
         getCwd: () => '/tmp/project',
+        getWorkflowName: () => 'workflow',
         getInteractive: () => false,
       } as ConstructorParameters<typeof TeamLeaderRunner>[0] & {
         engineOptions: { projectCwd: string; structuredCaller: typeof structuredCaller };
