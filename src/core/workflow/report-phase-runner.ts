@@ -210,7 +210,7 @@ async function runSingleReportAttempt(
     response = await runWithPhaseSpan({
       enabled: ctx.observabilityEnabled === true,
       runId: ctx.observabilityRunId,
-      workflowName: ctx.workflowName ?? 'unknown',
+      workflowName: ctx.workflowName,
       step,
       iteration: ctx.iteration,
       phase: 2,

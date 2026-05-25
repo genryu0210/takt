@@ -124,7 +124,7 @@ export async function runStatusJudgmentPhase(
       {
         enabled: ctx.observabilityEnabled === true,
         runId: ctx.observabilityRunId,
-        workflowName: ctx.workflowName ?? 'unknown',
+        workflowName: ctx.workflowName,
         step,
         iteration: ctx.iteration,
         phase: 3,
@@ -152,7 +152,7 @@ export async function runStatusJudgmentPhase(
           recordJudgeStageSpan({
             enabled: ctx.observabilityEnabled === true,
             runId: ctx.observabilityRunId,
-            workflowName: ctx.workflowName ?? 'unknown',
+            workflowName: ctx.workflowName,
             step,
             iteration: ctx.iteration,
             phaseExecutionId,

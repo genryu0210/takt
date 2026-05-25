@@ -66,7 +66,7 @@ export interface ParallelRunnerDeps {
   readonly engineOptions: WorkflowEngineOptions;
   readonly getCwd: () => string;
   readonly getReportDir: () => string;
-  readonly getWorkflowName?: () => string;
+  readonly getWorkflowName: () => string;
   readonly getInteractive: () => boolean;
   readonly observabilityEnabled: boolean;
   readonly observabilityRunId?: string;
@@ -205,7 +205,7 @@ export class ParallelRunner {
         const subResponse = await runWithPhaseSpan({
           enabled: this.deps.observabilityEnabled,
           runId: this.deps.observabilityRunId,
-          workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
+          workflowName: this.deps.getWorkflowName(),
           step: subStep,
           iteration: parentIteration,
           phase: 1,

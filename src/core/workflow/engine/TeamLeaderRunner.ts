@@ -29,7 +29,7 @@ export interface TeamLeaderRunnerDeps {
   readonly stepExecutor: StepExecutor;
   readonly engineOptions: WorkflowEngineOptions;
   readonly getCwd: () => string;
-  readonly getWorkflowName?: () => string;
+  readonly getWorkflowName: () => string;
   readonly getInteractive: () => boolean;
   readonly observabilityEnabled: boolean;
   readonly observabilityRunId?: string;
@@ -106,7 +106,7 @@ export class TeamLeaderRunner {
       {
         enabled: this.deps.observabilityEnabled,
         runId: this.deps.observabilityRunId,
-        workflowName: this.deps.getWorkflowName?.() ?? 'unknown',
+        workflowName: this.deps.getWorkflowName(),
         step: leaderStep,
         iteration: parentIteration,
         phase: 1,
