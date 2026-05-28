@@ -5,31 +5,30 @@ import type { JudgeStageEntry, PhaseName, StepProviderInfo, StepRunResult } from
 import { getWorkflowStepKind } from '../step-kind.js';
 
 const tracer = trace.getTracer('takt.workflow');
-const meter = metrics.getMeter('takt.workflow');
-const workflowRunCounter = meter.createCounter('takt.workflow.runs', {
+const WORKFLOW_RUN_COUNTER_OPTIONS = {
   description: 'Workflow executions by status',
-});
-const workflowDurationHistogram = meter.createHistogram('takt.workflow.duration', {
+};
+const WORKFLOW_DURATION_HISTOGRAM_OPTIONS = {
   description: 'Workflow execution duration',
   unit: 'ms',
-});
-const stepRunCounter = meter.createCounter('takt.workflow.step.runs', {
+};
+const STEP_RUN_COUNTER_OPTIONS = {
   description: 'Workflow step executions by status',
-});
-const stepDurationHistogram = meter.createHistogram('takt.workflow.step.duration', {
+};
+const STEP_DURATION_HISTOGRAM_OPTIONS = {
   description: 'Workflow step execution duration',
   unit: 'ms',
-});
-const phaseRunCounter = meter.createCounter('takt.workflow.phase.runs', {
+};
+const PHASE_RUN_COUNTER_OPTIONS = {
   description: 'Workflow phase executions by status',
-});
-const phaseDurationHistogram = meter.createHistogram('takt.workflow.phase.duration', {
+};
+const PHASE_DURATION_HISTOGRAM_OPTIONS = {
   description: 'Workflow phase execution duration',
   unit: 'ms',
-});
-const judgeStageCounter = meter.createCounter('takt.workflow.judge_stage.runs', {
+};
+const JUDGE_STAGE_COUNTER_OPTIONS = {
   description: 'Workflow judge stage executions by status',
-});
+};
 
 type AttributeInput = Record<string, string | number | boolean | undefined>;
 
@@ -309,8 +308,9 @@ function recordWorkflowMetrics(
     'takt.workflow.abort.kind': outcome.abortKind,
     'takt.workflow.run_mode': params.runMode,
   });
-  workflowRunCounter.add(1, attributes);
-  workflowDurationHistogram.record(durationMs, attributes);
+  const meter = metrics.getMeter('takt.workflow');
+  meter.createCounter('takt.workflow.runs', WORKFLOW_RUN_COUNTER_OPTIONS).add(1, attributes);
+  meter.createHistogram('takt.workflow.duration', WORKFLOW_DURATION_HISTOGRAM_OPTIONS).record(durationMs, attributes);
 }
 
 function recordStepResult(span: Span, params: StepSpanParams, result: StepRunResult): void {
@@ -350,8 +350,9 @@ function recordStepMetrics(
     'takt.step.result.failure_category': result?.response.failureCategory,
     ...providerAttributes(providerInfo),
   });
-  stepRunCounter.add(1, attributes);
-  stepDurationHistogram.record(durationMs, attributes);
+  const meter = metrics.getMeter('takt.workflow');
+  meter.createCounter('takt.workflow.step.runs', STEP_RUN_COUNTER_OPTIONS).add(1, attributes);
+  meter.createHistogram('takt.workflow.step.duration', STEP_DURATION_HISTOGRAM_OPTIONS).record(durationMs, attributes);
 }
 
 function recordPhaseOutcome(span: Span, params: PhaseSpanParams, outcome: PhaseSpanOutcome): void {
@@ -383,12 +384,16 @@ function recordPhaseMetrics(
     'takt.phase.status': outcome.status ?? 'unknown',
     ...providerAttributes(params.providerInfo),
   });
-  phaseRunCounter.add(1, attributes);
-  phaseDurationHistogram.record(durationMs, attributes);
+  const meter = metrics.getMeter('takt.workflow');
+  meter.createCounter('takt.workflow.phase.runs', PHASE_RUN_COUNTER_OPTIONS).add(1, attributes);
+  meter.createHistogram('takt.workflow.phase.duration', PHASE_DURATION_HISTOGRAM_OPTIONS).record(durationMs, attributes);
 }
 
 function recordJudgeStageMetrics(params: JudgeStageSpanParams): void {
-  judgeStageCounter.add(1, compactAttributes({
+  metrics.getMeter('takt.workflow').createCounter(
+    'takt.workflow.judge_stage.runs',
+    JUDGE_STAGE_COUNTER_OPTIONS,
+  ).add(1, compactAttributes({
     'takt.run.id': params.runId,
     'takt.workflow.name': params.workflowName,
     'takt.step.name': params.step.name,
