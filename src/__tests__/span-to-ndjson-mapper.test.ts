@@ -115,4 +115,16 @@ describe('span-to-ndjson mapper', () => {
       },
     })).toBeUndefined();
   });
+
+  it('skips nested workflow terminal spans for shadow session log parity', () => {
+    expect(mapSpanEndToNdjson({
+      name: 'workflow.child',
+      endTime: [1_778_777_300, 0],
+      attributes: {
+        'takt.workflow.status': 'completed',
+        'takt.workflow.iterations': 1,
+        'takt.workflow.resume_depth': 1,
+      },
+    })).toBeUndefined();
+  });
 });

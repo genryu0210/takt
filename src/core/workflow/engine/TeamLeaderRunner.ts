@@ -242,6 +242,7 @@ export class TeamLeaderRunner {
         leaderWorkflowMeta,
         part,
         partIndex,
+        parentIteration,
         teamLeaderConfig.timeoutMs,
         updatePersonaSession,
         parallelLogger,
@@ -330,6 +331,7 @@ export class TeamLeaderRunner {
     leaderWorkflowMeta: RunAgentOptions['workflowMeta'] | undefined,
     part: PartDefinition,
     partIndex: number,
+    parentIteration: number,
     defaultTimeoutMs: number,
     updatePersonaSession: (persona: string, sessionId: string | undefined) => void,
     parallelLogger: ParallelLogger | undefined,
@@ -344,6 +346,13 @@ export class TeamLeaderRunner {
       defaultTimeoutMs,
       updatePersonaSession,
       parallelLogger,
+      {
+        enabled: this.deps.observabilityEnabled,
+        runId: this.deps.observabilityRunId,
+        workflowName: this.deps.getWorkflowName(),
+        iteration: parentIteration,
+        sanitizeText: this.deps.sanitizeObservabilityText,
+      },
       runtime,
     );
   }

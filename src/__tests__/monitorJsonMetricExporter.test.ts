@@ -148,6 +148,30 @@ describe('MonitorJsonMetricExporter', () => {
     });
   });
 
+  it('continues exporting later registrations when one monitor path fails', () => {
+    const badMonitorPath = mkdtempSync(join(tmpdir(), 'takt-monitor-json-exporter-bad-'));
+    const goodMonitorPath = createTempMonitorPath();
+    tempDirs.add(badMonitorPath);
+    const exporter = new MonitorJsonMetricExporter();
+
+    exporter.register({ runId: 'run-1', monitorPath: badMonitorPath });
+    exporter.register({ runId: 'run-2', monitorPath: goodMonitorPath });
+
+    let result: { code: number; error?: Error } | undefined;
+    exporter.export(makeResourceMetrics(['run-1', 'run-2']), (exportResult) => {
+      result = exportResult;
+    });
+
+    expect(result).toEqual({ code: 0 });
+    const monitor = JSON.parse(readFileSync(goodMonitorPath, 'utf-8')) as {
+      scopeMetrics: Array<{ metrics: Array<{ points: Array<{ attributes: Record<string, unknown> }> }> }>;
+    };
+    expect(monitor.scopeMetrics[0]?.metrics[0]?.points[0]?.attributes).toMatchObject({
+      'takt.run.id': 'run-2',
+      'takt.workflow.status': 'aborted',
+    });
+  });
+
   it('does not overwrite a monitor file when an export has no points for that run', () => {
     const firstMonitorPath = createTempMonitorPath();
     const exporter = new MonitorJsonMetricExporter({ runId: 'run-1', monitorPath: firstMonitorPath });

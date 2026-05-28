@@ -42,8 +42,8 @@ export class MonitorJsonMetricExporter implements PushMetricExporter {
       return;
     }
 
-    try {
-      for (const options of this.registrations.values()) {
+    for (const options of this.registrations.values()) {
+      try {
         const filtered = filterResourceMetricsByRun(metrics, options.runId);
         if (filtered.scopeMetrics.length === 0) {
           continue;
@@ -53,15 +53,15 @@ export class MonitorJsonMetricExporter implements PushMetricExporter {
           options.monitorPath,
           `${JSON.stringify(serializeResourceMetrics(filtered), null, 2)}\n`,
         );
+      } catch (error) {
+        const wrapped = error instanceof Error ? error : new Error(String(error));
+        log.error('Failed to write monitor.json metrics', {
+          runId: options.runId,
+          error: wrapped.message,
+        });
       }
-      resultCallback({ code: 0 });
-    } catch (error) {
-      const wrapped = error instanceof Error ? error : new Error(String(error));
-      log.error('Failed to write monitor.json metrics', {
-        error: wrapped.message,
-      });
-      resultCallback({ code: 1, error: wrapped });
     }
+    resultCallback({ code: 0 });
   }
 
   async forceFlush(): Promise<void> {}

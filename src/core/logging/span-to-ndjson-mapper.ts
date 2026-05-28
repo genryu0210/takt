@@ -35,6 +35,10 @@ export function mapSpanEndToNdjson(span: SpanSnapshot): NdjsonRecord | undefined
 }
 
 function mapWorkflowEnd(span: SpanSnapshot): TerminalWorkflowRecord | undefined {
+  const resumeDepth = getNumber(span.attributes, 'takt.workflow.resume_depth') ?? 0;
+  if (resumeDepth > 0) {
+    return undefined;
+  }
   const status = getString(span.attributes, 'takt.workflow.status');
   if (status === undefined || status === 'running') {
     return undefined;
