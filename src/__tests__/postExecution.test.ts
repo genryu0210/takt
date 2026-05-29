@@ -16,6 +16,8 @@ const {
   mockCreatePullRequest,
   mockBuildPrBody,
   mockBuildTaktManagedPrOptions,
+  mockCheckPrHygiene,
+  mockFormatPrHygieneFailure,
   mockCreatePullRequestSafely,
   mockStripTaktManagedPrMarker,
 } =
@@ -29,6 +31,14 @@ const {
     mockBuildTaktManagedPrOptions: vi.fn((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     })),
+    mockCheckPrHygiene: vi.fn(() => ({
+      ok: true,
+      branch: 'task/fix-the-bug',
+      changedLines: 0,
+      changedPaths: [],
+      violations: [],
+    })),
+    mockFormatPrHygieneFailure: vi.fn(() => 'PR hygiene check failed.'),
     mockCreatePullRequestSafely: vi.fn(),
     mockStripTaktManagedPrMarker: vi.fn((body: string) => body
       .split('<!-- takt:managed -->')
@@ -56,6 +66,8 @@ vi.mock('../infra/git/index.js', () => ({
   }),
   buildPrBody: (...args: unknown[]) => mockBuildPrBody(...args),
   buildTaktManagedPrOptions: (...args: unknown[]) => mockBuildTaktManagedPrOptions(...args as [string]),
+  checkPrHygiene: (...args: unknown[]) => mockCheckPrHygiene(...args),
+  formatPrHygieneFailure: (...args: unknown[]) => mockFormatPrHygieneFailure(...args),
   stripTaktManagedPrMarker: (...args: unknown[]) => mockStripTaktManagedPrMarker(...args as [string]),
   createPullRequestSafely: (...args: unknown[]) => mockCreatePullRequestSafely(...args),
 }));
@@ -104,6 +116,14 @@ describe('postExecutionFlow', () => {
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     }));
+    mockCheckPrHygiene.mockReturnValue({
+      ok: true,
+      branch: 'task/fix-the-bug',
+      changedLines: 0,
+      changedPaths: [],
+      violations: [],
+    });
+    mockFormatPrHygieneFailure.mockReturnValue('PR hygiene check failed.');
     mockCreatePullRequestSafely.mockImplementation((provider, options, cwd) => {
       try {
         return provider.createPullRequest(options, cwd);
@@ -312,6 +332,35 @@ describe('postExecutionFlow', () => {
     expect(result.prFailed).toBe(true);
     expect(result.prError).toBe('Failed to create pull request. Base ref must be a branch');
     expect(result.prUrl).toBeUndefined();
+  });
+
+  it('PR hygiene が失敗した場合は origin push と PR 作成に進まない', async () => {
+    mockCheckPrHygiene.mockReturnValue({
+      ok: false,
+      branch: 'task/fix-the-bug',
+      changedLines: 20_000,
+      changedPaths: ['.takt/runs/sample/reports/00-plan.md'],
+      violations: [{ type: 'blocked-path', message: 'Blocked generated/runtime paths detected.' }],
+    });
+    mockFormatPrHygieneFailure.mockReturnValue(
+      'PR hygiene check failed.\n- Blocked generated/runtime paths detected: .takt/runs/sample/reports/00-plan.md',
+    );
+
+    const result = await postExecutionFlow({
+      ...baseOptions,
+      shouldPublishBranchToOrigin: true,
+    });
+
+    expect(mockCheckPrHygiene).toHaveBeenCalledWith('/project', {
+      baseBranch: 'main',
+      branch: 'task/fix-the-bug',
+    });
+    expect(mockPushBranch).not.toHaveBeenCalled();
+    expect(mockFindExistingPr).not.toHaveBeenCalled();
+    expect(mockCreatePullRequest).not.toHaveBeenCalled();
+    expect(result.prFailed).toBe(true);
+    expect(result.prError).toContain('PR hygiene check failed.');
+    expect(result.taskFailed).toBeUndefined();
   });
 
   it('ローカルpush失敗後も commitHash があれば（localPushFailed なし）PR 作成失敗を prFailed として返す', async () => {

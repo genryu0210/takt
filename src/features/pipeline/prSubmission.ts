@@ -1,6 +1,8 @@
 import {
   buildPrBody,
+  checkPrHygiene,
   createPullRequestSafely,
+  formatPrHygieneFailure,
   getGitProvider,
   stripTaktManagedPrMarker,
 } from '../../infra/git/index.js';
@@ -48,6 +50,16 @@ export function submitPullRequest(
   options: Pick<PipelineExecutionOptions, 'task' | 'repo' | 'draftPr'>,
 ): string | undefined {
   info('Creating pull request...');
+  const requiredBaseBranch = requireBaseBranch(baseBranch);
+  const hygieneResult = checkPrHygiene(projectCwd, {
+    baseBranch: requiredBaseBranch,
+    branch,
+  });
+  if (!hygieneResult.ok) {
+    error(formatPrHygieneFailure(hygieneResult));
+    return undefined;
+  }
+
   const prTitle = taskContent.issue ? `[#${taskContent.issue.number}] ${taskContent.issue.title}` : (options.task ?? 'Pipeline task');
   const report = `Workflow \`${workflow}\` completed successfully.`;
   const prBody = stripTaktManagedPrMarker(buildPipelinePrBody(pipelineConfig, taskContent.issue, report));
@@ -56,7 +68,7 @@ export function submitPullRequest(
     branch,
     title: prTitle,
     body: prBody,
-    base: requireBaseBranch(baseBranch),
+    base: requiredBaseBranch,
     repo: options.repo,
     draft: options.draftPr,
   }, projectCwd);

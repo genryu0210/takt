@@ -14,7 +14,20 @@ export const NON_FAST_FORWARD_PUSH_HINT =
 export interface StageAndCommitOptions {
   allowGitHooks?: boolean;
   allowGitFilters?: boolean;
+  excludePaths?: readonly string[];
 }
+
+export const DEFAULT_AUTO_COMMIT_EXCLUDED_PATHS = [
+  '.takt',
+  '.runtime',
+  '.venv',
+  'node_modules',
+  'dist',
+  'build',
+  'coverage',
+  '.next',
+  'out',
+] as const;
 
 export function getCurrentBranch(cwd: string): string {
   return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
@@ -78,17 +91,13 @@ function getSafeGitEnv(cwd: string, options: StageAndCommitOptions): NodeJS.Proc
  */
 export function stageAndCommit(cwd: string, message: string, options: StageAndCommitOptions = {}): string | undefined {
   const env = getSafeGitEnv(cwd, options);
+  const excludedPaths = options.excludePaths ?? DEFAULT_AUTO_COMMIT_EXCLUDED_PATHS;
 
   execFileSync('git', ['add', '-A'], { cwd, stdio: 'pipe', env });
 
-  const statusOutput = execFileSync('git', ['status', '--porcelain'], {
-    cwd,
-    stdio: 'pipe',
-    encoding: 'utf-8',
-    env,
-  });
+  unstageExcludedPaths(cwd, excludedPaths, env);
 
-  if (!statusOutput.trim()) {
+  if (listStagedFiles(cwd, env).length === 0) {
     return undefined;
   }
 
@@ -104,6 +113,44 @@ export function stageAndCommit(cwd: string, message: string, options: StageAndCo
     encoding: 'utf-8',
     env,
   }).trim();
+}
+
+function normalizeGitPath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+}
+
+function isPathExcluded(path: string, excludedPaths: readonly string[]): boolean {
+  const normalized = normalizeGitPath(path);
+  return excludedPaths.some(excluded => {
+    const normalizedExcluded = normalizeGitPath(excluded);
+    return normalized === normalizedExcluded || normalized.startsWith(`${normalizedExcluded}/`);
+  });
+}
+
+function listStagedFiles(cwd: string, env: NodeJS.ProcessEnv | undefined): string[] {
+  const output = execFileSync('git', ['diff', '--cached', '--name-only', '-z'], {
+    cwd,
+    stdio: 'pipe',
+    encoding: 'utf-8',
+    env,
+  });
+
+  return output.split('\0').filter(Boolean);
+}
+
+function unstageExcludedPaths(cwd: string, excludedPaths: readonly string[], env: NodeJS.ProcessEnv | undefined): void {
+  const excludedStagedFiles = listStagedFiles(cwd, env)
+    .filter(path => isPathExcluded(path, excludedPaths));
+
+  if (excludedStagedFiles.length === 0) {
+    return;
+  }
+
+  execFileSync('git', ['restore', '--staged', '--', ...excludedStagedFiles], {
+    cwd,
+    stdio: 'pipe',
+    env,
+  });
 }
 
 /**

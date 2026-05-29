@@ -32,6 +32,8 @@ vi.mock('../shared/utils/index.js', async (importOriginal) => ({
 import { execFileSync } from 'node:child_process';
 const mockExecFileSync = vi.mocked(execFileSync);
 
+const AUTO_COMMIT_ADD_ARGS = ['add', '-A'];
+
 function includesCommand(args: readonly string[], command: string): boolean {
   return args.includes(command);
 }
@@ -45,8 +47,8 @@ describe('autoCommitAndPush', () => {
   it('should create a commit and push when there are changes', () => {
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return 'M src/index.ts\n';
+      if (includesCommand(argsArr, 'diff')) {
+        return 'src/index.ts\0';
       }
       if (includesCommand(argsArr, 'rev-parse')) {
         return 'abc1234\n';
@@ -68,7 +70,7 @@ describe('autoCommitAndPush', () => {
     );
     expect(addCall).toBeDefined();
     expect(addCall![0]).toBe('git');
-    expect(addCall![1]).toEqual(['add', '-A']);
+    expect(addCall![1]).toEqual(AUTO_COMMIT_ADD_ARGS);
     expect(addCall![2]).toEqual(expect.objectContaining({
       cwd: '/tmp/clone',
       env: expect.objectContaining({
@@ -104,8 +106,8 @@ describe('autoCommitAndPush', () => {
   it('should return success with no commit when there are no changes', () => {
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return ''; // No changes
+      if (includesCommand(argsArr, 'diff')) {
+        return ''; // No staged changes
       }
       if (includesCommand(argsArr, 'config')) {
         return '';
@@ -121,7 +123,7 @@ describe('autoCommitAndPush', () => {
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
-      ['add', '-A'],
+      AUTO_COMMIT_ADD_ARGS,
       expect.objectContaining({
         cwd: '/tmp/clone',
         env: expect.objectContaining({
@@ -161,8 +163,8 @@ describe('autoCommitAndPush', () => {
     // Given: commit creation succeeds, but the local push back to projectDir fails.
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return 'M src/index.ts\n';
+      if (includesCommand(argsArr, 'diff')) {
+        return 'src/index.ts\0';
       }
       if (includesCommand(argsArr, 'rev-parse')) {
         return 'abc1234\n';
@@ -203,8 +205,8 @@ describe('autoCommitAndPush', () => {
   it('should not include co-author in commit message', () => {
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return 'M file.ts\n';
+      if (includesCommand(argsArr, 'diff')) {
+        return 'file.ts\0';
       }
       if (includesCommand(argsArr, 'rev-parse')) {
         return 'def5678\n';
@@ -232,8 +234,8 @@ describe('autoCommitAndPush', () => {
   it('should use the correct commit message format', () => {
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return 'A new-file.ts\n';
+      if (includesCommand(argsArr, 'diff')) {
+        return 'new-file.ts\0';
       }
       if (includesCommand(argsArr, 'rev-parse')) {
         return 'aaa1111\n';
@@ -262,8 +264,8 @@ describe('autoCommitAndPush', () => {
     });
     mockExecFileSync.mockImplementation((_cmd, args) => {
       const argsArr = args as string[];
-      if (includesCommand(argsArr, 'status')) {
-        return 'M src/index.ts\n';
+      if (includesCommand(argsArr, 'diff')) {
+        return 'src/index.ts\0';
       }
       if (includesCommand(argsArr, 'rev-parse')) {
         return 'abc1234\n';
@@ -275,7 +277,7 @@ describe('autoCommitAndPush', () => {
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
-      ['add', '-A'],
+      AUTO_COMMIT_ADD_ARGS,
       expect.objectContaining({ cwd: '/tmp/clone', env: undefined })
     );
     expect(mockExecFileSync).toHaveBeenCalledWith(

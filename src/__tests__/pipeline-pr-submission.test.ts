@@ -9,6 +9,14 @@ const mockStripTaktManagedPrMarker = vi.fn((body: string) => body
   .join('')
   .replace(/\n{3,}/g, '\n\n')
   .trimEnd());
+const mockCheckPrHygiene = vi.fn(() => ({
+  ok: true,
+  branch: 'takt/issue-42',
+  changedLines: 0,
+  changedPaths: [],
+  violations: [],
+}));
+const mockFormatPrHygieneFailure = vi.fn(() => 'PR hygiene check failed.');
 const mockCreatePullRequest = vi.fn();
 const mockExpandPipelineTemplate = vi.fn();
 const mockCreatePullRequestSafely = vi.fn((
@@ -25,6 +33,8 @@ vi.mock('../features/pipeline/templateExpander.js', () => ({
 vi.mock('../infra/git/index.js', () => ({
   buildPrBody: (...args: unknown[]) => mockBuildPrBody(...args),
   buildTaktManagedPrOptions: (...args: unknown[]) => mockBuildTaktManagedPrOptions(...(args as [string])),
+  checkPrHygiene: (...args: unknown[]) => mockCheckPrHygiene(...args),
+  formatPrHygieneFailure: (...args: unknown[]) => mockFormatPrHygieneFailure(...args),
   stripTaktManagedPrMarker: (...args: unknown[]) => mockStripTaktManagedPrMarker(...(args as [string])),
   createPullRequestSafely: (...args: unknown[]) => mockCreatePullRequestSafely(...args),
   getGitProvider: () => ({
@@ -58,6 +68,14 @@ describe('submitPullRequest', () => {
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     }));
+    mockCheckPrHygiene.mockReturnValue({
+      ok: true,
+      branch: 'takt/issue-42',
+      changedLines: 0,
+      changedPaths: [],
+      violations: [],
+    });
+    mockFormatPrHygieneFailure.mockReturnValue('PR hygiene check failed.');
     mockCreatePullRequestSafely.mockImplementation((
       provider: { createPullRequest: (options: unknown, cwd: string) => unknown },
       options: unknown,
@@ -112,6 +130,10 @@ describe('submitPullRequest', () => {
     }, '/repo');
     expect(mockBuildTaktManagedPrOptions).not.toHaveBeenCalled();
     expect(mockSuccess).toHaveBeenCalledWith('PR created: https://example.com/pr/1');
+    expect(mockCheckPrHygiene).toHaveBeenCalledWith('/repo', {
+      baseBranch: 'main',
+      branch: 'takt/issue-42',
+    });
   });
 
   it('should strip hidden marker from issue_body in plain pipeline PR templates', () => {
@@ -150,5 +172,38 @@ describe('submitPullRequest', () => {
       title: '[#43] Fix pipeline marker',
     }, '/repo');
     expect(mockBuildTaktManagedPrOptions).not.toHaveBeenCalled();
+  });
+
+  it('should stop before creating a PR when hygiene fails', () => {
+    mockCheckPrHygiene.mockReturnValueOnce({
+      ok: false,
+      branch: 'takt/issue-44',
+      changedLines: 20_000,
+      changedPaths: ['.takt/runs/sample/report.md'],
+      violations: [{ type: 'blocked-path', message: 'Blocked generated/runtime paths detected.' }],
+    });
+    mockFormatPrHygieneFailure.mockReturnValueOnce(
+      'PR hygiene check failed.\n- Blocked generated/runtime paths detected: .takt/runs/sample/report.md',
+    );
+
+    const prUrl = submitPullRequest(
+      '/repo',
+      'takt/issue-44',
+      'main',
+      {},
+      'auto-improvement-loop',
+      undefined,
+      {
+        draftPr: true,
+        repo: 'owner/repo',
+        task: 'Pipeline task',
+      },
+    );
+
+    expect(prUrl).toBeUndefined();
+    expect(mockCreatePullRequest).not.toHaveBeenCalled();
+    expect(mockError).toHaveBeenCalledWith(
+      'PR hygiene check failed.\n- Blocked generated/runtime paths detected: .takt/runs/sample/report.md',
+    );
   });
 });
