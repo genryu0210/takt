@@ -25,6 +25,7 @@ import type { WorkflowEngineOptions, PhaseName, PhasePromptParts } from '../type
 import type { RuntimeStepResolution, StepRunResult } from '../types.js';
 import { buildTeamLeaderErrorPartResult, runTeamLeaderPart } from './team-leader-part-runner.js';
 import { runWithPhaseSpan } from '../observability/workflowSpans.js';
+import { buildPhaseExecutionId } from '../../../shared/utils/phaseExecutionId.js';
 
 const log = createLogger('team-leader-runner');
 const MAX_TOTAL_PARTS = 20;
@@ -103,6 +104,13 @@ export class TeamLeaderRunner {
 
     emitTeamLeaderProgressHint(this.deps.engineOptions, 'decompose');
     let didEmitPhaseStart = false;
+    let resolvedPromptParts: PhasePromptParts | undefined;
+    const phaseExecutionId = buildPhaseExecutionId({
+      step: leaderStep.name,
+      iteration: parentIteration,
+      phase: 1,
+      sequence: 1,
+    });
     const structuredCaller = this.deps.engineOptions.structuredCaller;
     if (!structuredCaller) {
       throw new Error('structuredCaller is required for team leader execution');
@@ -117,8 +125,10 @@ export class TeamLeaderRunner {
         phase: 1,
         phaseName: 'execute',
         instruction,
+        phaseExecutionId,
         sanitizeText: this.deps.sanitizeObservabilityText,
         providerInfo: leaderProviderInfo,
+        getPromptParts: () => resolvedPromptParts,
       },
       () => structuredCaller.decomposeTask(instruction, teamLeaderConfig.maxParts, {
         cwd: this.deps.getCwd(),
@@ -132,7 +142,8 @@ export class TeamLeaderRunner {
         onStream: this.deps.engineOptions.onStream,
         onPromptResolved: (promptParts) => {
           if (didEmitPhaseStart) return;
-          this.deps.onPhaseStart?.(leaderStep, 1, 'execute', promptParts.userInstruction, promptParts, undefined, parentIteration);
+          resolvedPromptParts = promptParts;
+          this.deps.onPhaseStart?.(leaderStep, 1, 'execute', promptParts.userInstruction, promptParts, phaseExecutionId, parentIteration);
           didEmitPhaseStart = true;
         },
       }), (result) => ({
@@ -149,7 +160,7 @@ export class TeamLeaderRunner {
       content: JSON.stringify({ parts }, null, 2),
       timestamp: new Date(),
     };
-    this.deps.onPhaseComplete?.(leaderStep, 1, 'execute', leaderResponse.content, leaderResponse.status, leaderResponse.error, undefined, parentIteration);
+    this.deps.onPhaseComplete?.(leaderStep, 1, 'execute', leaderResponse.content, leaderResponse.status, leaderResponse.error, phaseExecutionId, parentIteration);
     log.debug('Team leader decomposed parts', {
       step: step.name,
       partCount: parts.length,

@@ -106,7 +106,9 @@ export async function runStatusJudgmentPhase(
   });
 
   let didEmitPhaseStart = false;
+  let resolvedPromptParts: { systemPrompt: string; userInstruction: string } | undefined;
   const emitPhaseStart = (promptParts: { systemPrompt: string; userInstruction: string }): void => {
+    resolvedPromptParts = promptParts;
     ctx.onPhaseStart?.(step, 3, 'judge', structuredInstruction, promptParts, phaseExecutionId, ctx.iteration);
     didEmitPhaseStart = true;
   };
@@ -133,6 +135,7 @@ export async function runStatusJudgmentPhase(
         phaseExecutionId,
         sanitizeText: ctx.sanitizeObservabilityText,
         providerInfo: stepProvider,
+        getPromptParts: () => resolvedPromptParts,
       },
       () => ctx.structuredCaller.judgeStatus(structuredInstruction, tagInstruction, rules, {
         cwd: ctx.cwd,

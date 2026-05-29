@@ -101,6 +101,7 @@ interface ArpeggioBatchObservability {
   readonly phaseExecutionId: string;
   readonly sanitizeText?: (text: string) => string;
   readonly providerInfo?: StepProviderInfo;
+  readonly getPromptParts?: () => PhasePromptParts | undefined;
 }
 
 /** Execute a single batch with retry logic */
@@ -136,6 +137,7 @@ async function executeBatchWithRetry(
     phaseExecutionId: observability.phaseExecutionId,
     sanitizeText: observability.sanitizeText,
     providerInfo: observability.providerInfo,
+    getPromptParts: observability.getPromptParts,
   }, async () => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -362,11 +364,13 @@ export class ArpeggioRunner {
       await semaphore.acquire();
       try {
         let didEmitPhaseStart = false;
+        let resolvedPromptParts: PhasePromptParts | undefined;
         const phaseExecutionId = `${step.name}:1:${stepIteration}:${batch.batchIndex}`;
         const batchAgentOptions: RunAgentOptions = {
           ...agentOptions,
           onPromptResolved: (promptParts) => {
             if (didEmitPhaseStart) return;
+            resolvedPromptParts = promptParts;
             this.deps.onPhaseStart?.(step, 1, 'execute', promptParts.userInstruction, promptParts, phaseExecutionId, iteration);
             didEmitPhaseStart = true;
           },
@@ -388,6 +392,7 @@ export class ArpeggioRunner {
             phaseExecutionId,
             sanitizeText: this.deps.sanitizeObservabilityText,
             providerInfo,
+            getPromptParts: () => resolvedPromptParts,
           },
           runtime,
         );

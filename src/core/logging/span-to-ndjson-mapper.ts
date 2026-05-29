@@ -134,7 +134,17 @@ function mapPhaseStart(span: SpanSnapshot): NdjsonPhaseStart | undefined {
   const step = getString(span.attributes, 'takt.step.name');
   const phase = getPhaseNumber(span.attributes, 'takt.phase.number');
   const phaseName = getPhaseName(span.attributes, 'takt.phase.name');
-  if (!step || phase === undefined || phaseName === undefined) {
+  const phaseExecutionId = getString(span.attributes, 'takt.phase.execution_id');
+  const systemPrompt = getString(span.attributes, 'takt.phase.system_prompt');
+  const userInstruction = getString(span.attributes, 'takt.phase.user_instruction');
+  if (
+    !step
+    || phase === undefined
+    || phaseName === undefined
+    || !phaseExecutionId
+    || systemPrompt === undefined
+    || userInstruction === undefined
+  ) {
     return undefined;
   }
 
@@ -145,11 +155,11 @@ function mapPhaseStart(span: SpanSnapshot): NdjsonPhaseStart | undefined {
     ...getWorkflowStack(span.attributes),
     phase,
     phaseName,
-    ...optionalString('phaseExecutionId', getString(span.attributes, 'takt.phase.execution_id')),
+    phaseExecutionId,
     timestamp: getTimestamp(span.startTime),
     ...optionalString('instruction', getString(span.attributes, 'takt.phase.instruction')),
-    ...optionalString('systemPrompt', getString(span.attributes, 'takt.phase.system_prompt')),
-    ...optionalString('userInstruction', getString(span.attributes, 'takt.phase.user_instruction')),
+    systemPrompt,
+    userInstruction,
   };
 }
 
@@ -157,8 +167,19 @@ function mapPhaseComplete(span: SpanSnapshot): NdjsonPhaseComplete | undefined {
   const step = getString(span.attributes, 'takt.step.name');
   const phase = getPhaseNumber(span.attributes, 'takt.phase.number');
   const phaseName = getPhaseName(span.attributes, 'takt.phase.name');
+  const phaseExecutionId = getString(span.attributes, 'takt.phase.execution_id');
+  const systemPrompt = getString(span.attributes, 'takt.phase.system_prompt');
+  const userInstruction = getString(span.attributes, 'takt.phase.user_instruction');
   const status = getString(span.attributes, 'takt.phase.status');
-  if (!step || phase === undefined || phaseName === undefined || !status) {
+  if (
+    !step
+    || phase === undefined
+    || phaseName === undefined
+    || !phaseExecutionId
+    || systemPrompt === undefined
+    || userInstruction === undefined
+    || !status
+  ) {
     return undefined;
   }
 
@@ -169,7 +190,7 @@ function mapPhaseComplete(span: SpanSnapshot): NdjsonPhaseComplete | undefined {
     ...getWorkflowStack(span.attributes),
     phase,
     phaseName,
-    ...optionalString('phaseExecutionId', getString(span.attributes, 'takt.phase.execution_id')),
+    phaseExecutionId,
     status,
     ...optionalString('content', getString(span.attributes, 'takt.phase.result.content')),
     timestamp: getTimestamp(span.endTime),

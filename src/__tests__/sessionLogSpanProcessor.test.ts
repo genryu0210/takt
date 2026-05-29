@@ -160,4 +160,53 @@ describe('SessionLogSpanProcessor', () => {
       }),
     ]);
   });
+
+  it('writes phase start and complete records from the completed phase span snapshot', () => {
+    const shadowLogPath = createTempLogPath();
+    const processor = new SessionLogSpanProcessor({
+      runId: 'run-1',
+      shadowLogPath,
+      sanitizedTask: 'task',
+      workflowName: 'default',
+    });
+    const phaseSpan = {
+      name: 'phase.implement.execute',
+      startTime: [1_778_777_200, 0],
+      endTime: [1_778_777_205, 0],
+      attributes: {
+        'takt.run.id': 'run-1',
+        'takt.step.name': 'implement',
+        'takt.step.iteration': 1,
+        'takt.phase.number': 1,
+        'takt.phase.name': 'execute',
+        'takt.phase.execution_id': 'implement:1:1:1',
+        'takt.phase.instruction': 'Implement it',
+        'takt.phase.system_prompt': 'System prompt',
+        'takt.phase.user_instruction': 'User instruction',
+        'takt.phase.status': 'done',
+        'takt.phase.result.content': 'implemented',
+      },
+    };
+
+    processor.onStart(phaseSpan as unknown as Span, {} as Context);
+    processor.onEnd(phaseSpan as unknown as ReadableSpan);
+
+    expect(readRecords(shadowLogPath)).toEqual([
+      expect.objectContaining({
+        type: 'workflow_start',
+      }),
+      expect.objectContaining({
+        type: 'phase_start',
+        phaseExecutionId: 'implement:1:1:1',
+        systemPrompt: 'System prompt',
+        userInstruction: 'User instruction',
+      }),
+      expect.objectContaining({
+        type: 'phase_complete',
+        phaseExecutionId: 'implement:1:1:1',
+        status: 'done',
+        content: 'implemented',
+      }),
+    ]);
+  });
 });

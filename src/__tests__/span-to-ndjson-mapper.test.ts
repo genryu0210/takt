@@ -145,6 +145,8 @@ describe('span-to-ndjson mapper', () => {
         'takt.phase.name': 'execute',
         'takt.phase.execution_id': 'implement:1:1',
         'takt.phase.instruction': 'Implement it',
+        'takt.phase.system_prompt': 'System prompt',
+        'takt.phase.user_instruction': 'User instruction',
         'takt.phase.status': 'done',
         'takt.phase.result.content': 'implemented',
       },
@@ -161,6 +163,8 @@ describe('span-to-ndjson mapper', () => {
       phaseExecutionId: 'implement:1:1',
       timestamp: '2026-05-14T16:46:40.000Z',
       instruction: 'Implement it',
+      systemPrompt: 'System prompt',
+      userInstruction: 'User instruction',
     });
     expect(mapSpanEndToNdjson(phaseSpan)).toEqual({
       type: 'phase_complete',
@@ -175,6 +179,37 @@ describe('span-to-ndjson mapper', () => {
       content: 'implemented',
       timestamp: '2026-05-14T16:46:45.000Z',
     });
+  });
+
+  it('skips phase spans without execution ids to avoid shadow-only phase records', () => {
+    const span: SpanSnapshot = {
+      name: 'phase.implement.execute',
+      attributes: {
+        'takt.step.name': 'implement',
+        'takt.phase.number': 1,
+        'takt.phase.name': 'execute',
+        'takt.phase.status': 'done',
+      },
+    };
+
+    expect(mapSpanStartToNdjson(span)).toBeUndefined();
+    expect(mapSpanEndToNdjson(span)).toBeUndefined();
+  });
+
+  it('skips phase spans without resolved prompt parts to avoid shadow-only phase records', () => {
+    const span: SpanSnapshot = {
+      name: 'phase.implement.execute',
+      attributes: {
+        'takt.step.name': 'implement',
+        'takt.phase.number': 1,
+        'takt.phase.name': 'execute',
+        'takt.phase.execution_id': 'implement:1:1:1',
+        'takt.phase.status': 'done',
+      },
+    };
+
+    expect(mapSpanStartToNdjson(span)).toBeUndefined();
+    expect(mapSpanEndToNdjson(span)).toBeUndefined();
   });
 
   it('maps judge stage spans into session log compatible judge records', () => {

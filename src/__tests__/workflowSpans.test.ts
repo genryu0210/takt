@@ -307,6 +307,7 @@ describe('workflow OpenTelemetry spans', () => {
         phase: 1,
         phaseName: 'execute',
         instruction: 'secret execute',
+        phaseExecutionId: 'implement:3:1:1',
         sanitizeText: (text: string) => text.replaceAll('secret', '[REDACTED]'),
         providerInfo: {
           provider: 'codex',
@@ -314,6 +315,10 @@ describe('workflow OpenTelemetry spans', () => {
           providerSource: 'project',
           modelSource: 'global',
         },
+        getPromptParts: () => ({
+          systemPrompt: 'secret system',
+          userInstruction: 'secret user',
+        }),
       }, async () => ({ status: 'done', content: 'secret content' }), (result: { status: string; content: string }) => ({
         status: result.status,
         content: result.content,
@@ -333,7 +338,10 @@ describe('workflow OpenTelemetry spans', () => {
       'takt.step.iteration': 3,
       'takt.phase.number': 1,
       'takt.phase.name': 'execute',
+      'takt.phase.execution_id': 'implement:3:1:1',
       'takt.phase.instruction': '[REDACTED] execute',
+      'takt.phase.system_prompt': '[REDACTED] system',
+      'takt.phase.user_instruction': '[REDACTED] user',
       'takt.phase.status': 'done',
       'takt.phase.result.content': '[REDACTED] content',
       'takt.provider.name': 'codex',

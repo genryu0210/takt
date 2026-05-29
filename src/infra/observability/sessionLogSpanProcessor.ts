@@ -45,6 +45,9 @@ export class SessionLogSpanProcessor implements SpanProcessor {
     if (!options) {
       return;
     }
+    if (span.name.startsWith('phase.')) {
+      return;
+    }
     const record = mapSpanStartToNdjson(toSpanSnapshot(span));
     this.safeAppend(options, record);
   }
@@ -54,7 +57,11 @@ export class SessionLogSpanProcessor implements SpanProcessor {
     if (!options) {
       return;
     }
-    const record = mapSpanEndToNdjson(toSpanSnapshot(span));
+    const snapshot = toSpanSnapshot(span);
+    if (span.name.startsWith('phase.')) {
+      this.safeAppend(options, mapSpanStartToNdjson(snapshot));
+    }
+    const record = mapSpanEndToNdjson(snapshot);
     this.safeAppend(options, record);
   }
 

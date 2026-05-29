@@ -1,7 +1,7 @@
 import { context, metrics, SpanStatusCode, trace, type Attributes, type Span } from '@opentelemetry/api';
 import { getErrorMessage } from '../../../shared/utils/index.js';
 import type { WorkflowMaxSteps, WorkflowResumePointEntry, WorkflowStep } from '../../models/types.js';
-import type { JudgeStageEntry, PhaseName, StepProviderInfo, StepRunResult } from '../types.js';
+import type { JudgeStageEntry, PhaseName, PhasePromptParts, StepProviderInfo, StepRunResult } from '../types.js';
 import { getWorkflowStepKind } from '../step-kind.js';
 
 const tracer = trace.getTracer('takt.workflow');
@@ -77,6 +77,7 @@ export interface PhaseSpanParams {
   phaseExecutionId?: string;
   sanitizeText?: (text: string) => string;
   providerInfo?: StepProviderInfo;
+  getPromptParts?: () => PhasePromptParts | undefined;
 }
 
 export interface PhaseSpanOutcome {
@@ -176,7 +177,9 @@ export async function runWithPhaseSpan<T>(
         recordPhaseMetrics(params, outcome, Date.now() - startedAt);
         return result;
       } catch (error) {
-        recordPhaseMetrics(params, { status: 'error', error: getErrorMessage(error) }, Date.now() - startedAt);
+        const outcome = { status: 'error', error: getErrorMessage(error) };
+        recordPhaseOutcome(span, params, outcome);
+        recordPhaseMetrics(params, outcome, Date.now() - startedAt);
         throw error;
       }
     },
@@ -356,8 +359,11 @@ function recordStepMetrics(
 }
 
 function recordPhaseOutcome(span: Span, params: PhaseSpanParams, outcome: PhaseSpanOutcome): void {
+  const promptParts = params.getPromptParts?.();
   span.setAttributes(compactAttributes({
     'takt.phase.status': outcome.status,
+    'takt.phase.system_prompt': sanitizeSpanText(params.sanitizeText, promptParts?.systemPrompt),
+    'takt.phase.user_instruction': sanitizeSpanText(params.sanitizeText, promptParts?.userInstruction),
     'takt.phase.result.content': sanitizeSpanText(params.sanitizeText, outcome.content),
     'takt.phase.result.error': sanitizeSpanText(params.sanitizeText, outcome.error),
     'takt.phase.result.matched_rule_index': outcome.matchedRuleIndex,
