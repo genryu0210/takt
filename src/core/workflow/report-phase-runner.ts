@@ -183,9 +183,9 @@ export async function runReportPhase(
   log.debug('Report phase complete', { step: step.name, filesGenerated: reportFiles.length });
 }
 
-function nextReportPhaseExecutionId(stepName: string, iteration: number | undefined, sequence: number): string {
+function nextReportPhaseExecutionId(stepName: string, iteration: number | undefined, sequence: number): string | undefined {
   if (iteration == null) {
-    throw new Error(`Missing iteration for report phase execution id: ${stepName}`);
+    return undefined;
   }
   return buildPhaseExecutionId({
     step: stepName,
@@ -213,7 +213,7 @@ async function runSingleReportAttempt(
   instruction: string,
   options: RunAgentOptions,
   ctx: PhaseRunnerContext,
-  phaseExecutionId: string,
+  phaseExecutionId: string | undefined,
 ): Promise<ReportAttemptResult> {
   let didEmitPhaseStart = false;
   let resolvedPromptParts: PhasePromptParts | undefined;
