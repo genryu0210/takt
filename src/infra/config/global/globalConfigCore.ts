@@ -11,6 +11,7 @@ import {
   normalizeProviderProfiles,
   normalizeWorkflowOverrides,
   normalizePipelineConfig,
+  normalizePullRequestConfig,
   normalizePersonaProviders,
   normalizeTaktProviders,
   buildRawTaktProvidersOrThrow,
@@ -207,6 +208,9 @@ export class GlobalConfigManager {
       // Project-local keys (also accepted in global config)
       pipeline: normalizePipelineConfig(
         parsed.pipeline as { default_branch_prefix?: string; commit_message_template?: string; pr_body_template?: string } | undefined,
+      ),
+      pullRequest: normalizePullRequestConfig(
+        parsed.pull_request as { title_template?: string; body_template?: string; body_sections?: NonNullable<GlobalConfig['pullRequest']>['bodySections'] } | undefined,
       ),
       taktProviders: normalizeTaktProviders(
         parsed.takt_providers as {

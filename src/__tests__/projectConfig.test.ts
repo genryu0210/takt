@@ -533,6 +533,12 @@ unexpected_overrides:
         'pipeline:',
         '  default_branch_prefix: "proj/"',
         '  commit_message_template: "feat: {title} (#{issue})"',
+        'pull_request:',
+        '  title_template: "[#{issue}] {summary}"',
+        '  body_sections:',
+        '    - summary',
+        '    - background',
+        '    - verification',
         'persona_providers:',
         '  coder:',
         '    provider: opencode',
@@ -549,6 +555,10 @@ unexpected_overrides:
       expect(loaded.pipeline).toEqual({
         defaultBranchPrefix: 'proj/',
         commitMessageTemplate: 'feat: {title} (#{issue})',
+      });
+      expect(loaded.pullRequest).toEqual({
+        titleTemplate: '[#{issue}] {summary}',
+        bodySections: ['summary', 'background', 'verification'],
       });
       expect(loaded.personaProviders).toEqual({
         coder: { provider: 'opencode', model: 'opencode/big-pickle' },
@@ -677,6 +687,10 @@ unexpected_overrides:
           defaultBranchPrefix: 'task/',
           prBodyTemplate: 'Body {report}',
         },
+        pullRequest: {
+          titleTemplate: '[#{issue}] {summary}',
+          bodyTemplate: '## Summary\n{summary}',
+        },
         personaProviders: {
           reviewer: { provider: 'codex', model: 'gpt-5' },
         },
@@ -693,6 +707,10 @@ unexpected_overrides:
       expect(raw).toContain('pipeline:');
       expect(raw).toContain('default_branch_prefix: task/');
       expect(raw).toContain('pr_body_template: Body {report}');
+      expect(raw).toContain('pull_request:');
+      expect(raw).toContain('title_template: "[#{issue}] {summary}"');
+      expect(raw).toContain('body_template: |');
+      expect(raw).toContain('  ## Summary');
       expect(raw).toContain('persona_providers:');
       expect(raw).toContain('provider: codex');
       expect(raw).toContain('branch_name_strategy: romaji');

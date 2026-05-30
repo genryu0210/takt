@@ -408,3 +408,22 @@ export const PipelineConfigSchema = z.object({
   commit_message_template: z.string().optional(),
   pr_body_template: z.string().optional(),
 }).strict();
+
+const PullRequestBodySectionSchema = z.enum([
+  'summary',
+  'background',
+  'changes',
+  'acceptance_criteria',
+  'out_of_scope',
+  'verification',
+  'review_focus',
+  'risks',
+  'notes',
+]);
+
+/** Normal task auto PR config schema */
+export const PullRequestConfigSchema = z.object({
+  title_template: z.string().optional(),
+  body_template: z.string().optional(),
+  body_sections: z.array(PullRequestBodySectionSchema).optional(),
+}).strict();

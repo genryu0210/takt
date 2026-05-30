@@ -11,6 +11,7 @@ import type {
   WorkflowOverrides,
   PersonaProviderEntry,
   PipelineConfig,
+  PullRequestConfig,
   TaktProviderConfigEntry,
   TaktProvidersConfig,
 } from '../../core/models/config-types.js';
@@ -326,6 +327,42 @@ export function normalizePipelineConfig(raw: {
     commitMessageTemplate: commit_message_template,
     prBodyTemplate: pr_body_template,
   };
+}
+
+export function normalizePullRequestConfig(raw: {
+  title_template?: string;
+  body_template?: string;
+  body_sections?: PullRequestConfig['bodySections'];
+} | undefined): PullRequestConfig | undefined {
+  if (!raw) return undefined;
+  const { title_template, body_template, body_sections } = raw;
+  if (title_template === undefined && body_template === undefined && body_sections === undefined) {
+    return undefined;
+  }
+  return {
+    titleTemplate: title_template,
+    bodyTemplate: body_template,
+    bodySections: body_sections,
+  };
+}
+
+export function denormalizePullRequestConfig(
+  config: PullRequestConfig | undefined,
+): {
+  title_template?: string;
+  body_template?: string;
+  body_sections?: PullRequestConfig['bodySections'];
+} | undefined {
+  if (!config) return undefined;
+  const result: {
+    title_template?: string;
+    body_template?: string;
+    body_sections?: PullRequestConfig['bodySections'];
+  } = {};
+  if (config.titleTemplate !== undefined) result.title_template = config.titleTemplate;
+  if (config.bodyTemplate !== undefined) result.body_template = config.bodyTemplate;
+  if (config.bodySections !== undefined) result.body_sections = config.bodySections;
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 export function normalizeAssistantConfig(

@@ -5,6 +5,7 @@ import {
   denormalizeWorkflowOverrides,
   denormalizeProviderOptions,
   denormalizeRateLimitFallback,
+  denormalizePullRequestConfig,
 } from '../configNormalizers.js';
 import { denormalizeObservabilityConfig } from '../observabilityConfig.js';
 
@@ -205,6 +206,10 @@ export function serializeGlobalConfig(config: GlobalConfig): Record<string, unkn
       pipelineRaw.pr_body_template = config.pipeline.prBodyTemplate;
     }
     if (Object.keys(pipelineRaw).length > 0) raw.pipeline = pipelineRaw;
+  }
+  const rawPullRequest = denormalizePullRequestConfig(config.pullRequest);
+  if (rawPullRequest) {
+    raw.pull_request = rawPullRequest;
   }
   const rawPersonaProviders = denormalizePersonaProviders(config.personaProviders);
   if (rawPersonaProviders && Object.keys(rawPersonaProviders).length > 0) {

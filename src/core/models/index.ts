@@ -58,6 +58,8 @@ export type {
   ResolvedObservabilityConfig,
   Language,
   PipelineConfig,
+  PullRequestBodySection,
+  PullRequestConfig,
   ProjectConfig,
   ProviderProfileName,
   ProviderPermissionProfile,
