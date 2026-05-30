@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getFilesChanged, getOriginalInstruction } from '../infra/task/branchList.js';
+import { getFilesChanged, getOriginalInstruction, listTaktBranches } from '../infra/task/branchList.js';
 
 function runGit(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -97,6 +97,47 @@ describe('branchList regression for issue #167', () => {
 
     expect(instruction).toBe('github-issue-167-fix-original-instruction');
     expect(changed).toBe(2);
+  });
+
+  it('should list conventional branches only when clone meta marks them as takt-managed', () => {
+    const repoDir = mkdtempSync(join(tmpdir(), 'takt-branchlist-conventional-'));
+    tempDirs.push(repoDir);
+    try {
+      runGit(repoDir, ['init', '-b', 'main']);
+    } catch (error) {
+      if (!isUnsupportedInitBranchOptionError(error)) {
+        throw error;
+      }
+      runGit(repoDir, ['init']);
+    }
+    runGit(repoDir, ['config', 'user.name', 'takt-test']);
+    runGit(repoDir, ['config', 'user.email', 'takt-test@example.com']);
+    writeAndCommit(repoDir, 'main.txt', 'main\n', 'main base');
+    runGit(repoDir, ['branch', '-M', 'main']);
+
+    runGit(repoDir, ['checkout', '-b', 'feat/manual-feature']);
+    writeAndCommit(repoDir, 'manual.txt', 'manual\n', 'manual feature');
+    runGit(repoDir, ['checkout', 'main']);
+
+    runGit(repoDir, ['checkout', '-b', 'fix/issue-167-fix-original-instruction']);
+    writeAndCommit(repoDir, 'task.txt', 'task\n', 'takt: fix original instruction');
+    runGit(repoDir, ['checkout', 'main']);
+
+    const cloneMetaDir = join(repoDir, '.takt', 'clone-meta');
+    mkdirSync(cloneMetaDir, { recursive: true });
+    writeFileSync(
+      join(cloneMetaDir, 'fix--issue-167-fix-original-instruction.json'),
+      JSON.stringify({
+        branch: 'fix/issue-167-fix-original-instruction',
+        clonePath: '/tmp/takt-worktrees/fix-original-instruction',
+      }),
+      'utf-8',
+    );
+
+    const branches = listTaktBranches(repoDir);
+
+    expect(branches.some((branch) => branch.branch === 'fix/issue-167-fix-original-instruction')).toBe(true);
+    expect(branches.some((branch) => branch.branch === 'feat/manual-feature')).toBe(false);
   });
 
   it('should keep original instruction and changed files after merging branch into develop', () => {

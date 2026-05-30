@@ -15,6 +15,7 @@ import {
 import { cloneAndIsolate, cloneAndIsolateAbortable, resolveCloneSubmoduleOptions, runGitCommandAbortable } from './clone-exec.js';
 import { loadCloneMeta, removeCloneMeta as removeCloneMetaFile, saveCloneMeta as saveCloneMetaFile } from './clone-meta.js';
 import { syncProjectLocalTaktForRetry } from './projectLocalTaktSync.js';
+import { buildConventionalBranchName } from './branchName.js';
 
 export type { WorktreeOptions, WorktreeResult };
 export {
@@ -106,14 +107,12 @@ export class CloneManager {
       return options.branch;
     }
 
-    const slug = options.taskSlug;
-
-    if (options.issueNumber !== undefined && slug) {
-      return `takt/${options.issueNumber}/${slug}`;
-    }
-
-    const timestamp = CloneManager.generateTimestamp();
-    return slug ? `takt/${timestamp}-${slug}` : `takt/${timestamp}`;
+    return buildConventionalBranchName({
+      taskSlug: options.taskSlug,
+      taskContent: options.taskContent,
+      issueNumber: options.issueNumber,
+      timestamp: CloneManager.generateTimestamp(),
+    });
   }
 
   static resolveBaseBranch(

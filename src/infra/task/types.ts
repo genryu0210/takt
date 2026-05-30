@@ -33,6 +33,7 @@ export interface WorktreeOptions {
   branch?: string;
   baseBranch?: string;
   taskSlug: string;
+  taskContent?: string;
   issueNumber?: number;
 }
 
