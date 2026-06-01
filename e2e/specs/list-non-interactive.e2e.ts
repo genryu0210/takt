@@ -217,7 +217,7 @@ describe('E2E: List tasks non-interactive (takt list)', () => {
       taskMeta.status,
       `taskMeta:\n${JSON.stringify(taskMeta, null, 2)}\n\n${formatTaktRunResult(runResult)}`,
     ).toBe('completed');
-    expect(taskMeta.branch).toMatch(/^takt\//);
+    expect(taskMeta.branch).toMatch(/^(feat|fix|docs|test|refactor|perf|ci|build|chore)\//);
     expect(taskMeta.worktree_path).toBeTruthy();
 
     const rootBranch = execFileSync('git', ['branch', '--list', taskMeta.branch!], {
@@ -276,7 +276,7 @@ describe('E2E: List tasks non-interactive (takt list)', () => {
       taskMeta.status,
       `taskMeta:\n${JSON.stringify(taskMeta, null, 2)}\n\n${formatTaktRunResult(runResult)}`,
     ).toBe('completed');
-    expect(taskMeta.branch).toMatch(/^takt\//);
+    expect(taskMeta.branch).toMatch(/^(feat|fix|docs|test|refactor|perf|ci|build|chore)\//);
     expect(taskMeta.worktree_path).toBeTruthy();
 
     writeFileSync(join(testRepo.path, 'ROOT_SYNC.txt'), 'sync from root\n', 'utf-8');
