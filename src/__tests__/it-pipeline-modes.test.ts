@@ -24,6 +24,8 @@ const {
   mockCreatePullRequest,
   mockBuildTaktManagedPrOptions,
   mockCreatePullRequestSafely,
+  mockCheckPrHygiene,
+  mockFormatPrHygieneFailure,
   mockPushBranch,
   mockStripTaktManagedPrMarker,
 } = vi.hoisted(() => ({
@@ -35,6 +37,14 @@ const {
     body: `${body}\n\n<!-- takt:managed -->`,
   })),
   mockCreatePullRequestSafely: vi.fn(),
+  mockCheckPrHygiene: vi.fn(() => ({
+    ok: true,
+    branch: 'feature/test',
+    changedLines: 0,
+    changedPaths: [],
+    violations: [],
+  })),
+  mockFormatPrHygieneFailure: vi.fn(() => 'PR hygiene check failed.'),
   mockPushBranch: vi.fn(),
   mockStripTaktManagedPrMarker: vi.fn((body: string) => body
     .split('<!-- takt:managed -->')
@@ -58,6 +68,8 @@ vi.mock('../infra/git/index.js', () => ({
   buildTaktManagedPrOptions: (...args: unknown[]) => mockBuildTaktManagedPrOptions(...args as [string]),
   stripTaktManagedPrMarker: (...args: unknown[]) => mockStripTaktManagedPrMarker(...args as [string]),
   formatPrReviewAsTask: vi.fn(),
+  checkPrHygiene: (...args: unknown[]) => mockCheckPrHygiene(...args),
+  formatPrHygieneFailure: (...args: unknown[]) => mockFormatPrHygieneFailure(...args),
   createPullRequestSafely: (...args: unknown[]) => mockCreatePullRequestSafely(...args),
 }));
 
@@ -225,6 +237,14 @@ describe('Pipeline Modes IT: --task + --workflow path', () => {
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     }));
+    mockCheckPrHygiene.mockReturnValue({
+      ok: true,
+      branch: 'feature/test',
+      changedLines: 0,
+      changedPaths: [],
+      violations: [],
+    });
+    mockFormatPrHygieneFailure.mockReturnValue('PR hygiene check failed.');
     mockCreatePullRequestSafely.mockImplementation((provider, options, cwd) => {
       try {
         return provider.createPullRequest(options, cwd);
