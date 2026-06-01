@@ -146,10 +146,11 @@ function unstageExcludedPaths(cwd: string, excludedPaths: readonly string[], env
     return;
   }
 
-  execFileSync('git', ['restore', '--staged', '--', ...excludedStagedFiles], {
+  execFileSync('git', ['restore', '--staged', '--pathspec-from-file=-', '--pathspec-file-nul'], {
     cwd,
     stdio: 'pipe',
     env,
+    input: `${excludedStagedFiles.join('\0')}\0`,
   });
 }
 

@@ -146,6 +146,38 @@ describe('autoCommitAndPush', () => {
     );
   });
 
+  it('should unstage excluded paths via pathspec input instead of argv expansion', () => {
+    let stagedListCalls = 0;
+    mockExecFileSync.mockImplementation((_cmd, args) => {
+      const argsArr = args as string[];
+      if (includesCommand(argsArr, 'config')) {
+        return '';
+      }
+      if (argsArr[0] === 'diff' && argsArr.includes('--cached')) {
+        stagedListCalls += 1;
+        return stagedListCalls === 1
+          ? '.takt/runs/sample/report.md\0node_modules/pkg/index.js\0src/index.ts\0'
+          : 'src/index.ts\0';
+      }
+      if (includesCommand(argsArr, 'rev-parse')) {
+        return 'abc1234\n';
+      }
+      return Buffer.from('');
+    });
+
+    const result = autoCommitAndPush('/tmp/clone', 'my-task', '/project');
+
+    expect(result.success).toBe(true);
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['restore', '--staged', '--pathspec-from-file=-', '--pathspec-file-nul'],
+      expect.objectContaining({
+        cwd: '/tmp/clone',
+        input: '.takt/runs/sample/report.md\0node_modules/pkg/index.js\0',
+      }),
+    );
+  });
+
   it('should return failure when git command fails', () => {
     mockExecFileSync.mockImplementation(() => {
       throw new Error('git error: not a git repository');

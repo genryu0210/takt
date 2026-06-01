@@ -231,6 +231,7 @@ export function commitAndPush(
   branch: string,
   commitMessage: string,
   isWorktree: boolean,
+  options: { beforeOriginPush?: () => boolean } = {},
 ): boolean {
   const safeBranch = sanitizeTerminalText(branch);
   info('Committing changes...');
@@ -247,6 +248,10 @@ export function commitAndPush(
 
     if (isWorktree) {
       execFileSync('git', ['push', projectCwd, 'HEAD'], { cwd: execCwd, stdio: 'pipe' });
+    }
+
+    if (options.beforeOriginPush && !options.beforeOriginPush()) {
+      return false;
     }
 
     info(`Pushing to origin/${safeBranch}...`);

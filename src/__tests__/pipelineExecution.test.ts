@@ -373,6 +373,30 @@ describe('executePipeline', () => {
     expect(exitCode).toBe(5);
   });
 
+  it('should stop before pushing to origin when auto PR hygiene fails after commit', async () => {
+    mockExecuteTask.mockResolvedValueOnce(true);
+    mockCheckPrHygiene.mockReturnValueOnce({
+      ok: false,
+      branch: 'fix/my-branch',
+      changedLines: 20_000,
+      changedPaths: ['.takt/runs/sample/report.md'],
+      violations: [{ type: 'blocked-path', message: 'Blocked generated/runtime paths detected.' }],
+    });
+
+    const exitCode = await executePipeline({
+      task: 'Fix the bug',
+      workflow: 'default',
+      branch: 'fix/my-branch',
+      autoPr: true,
+      cwd: '/tmp/test',
+    });
+
+    expect(exitCode).toBe(4);
+    expect(mockPushBranch).not.toHaveBeenCalled();
+    expect(mockCreatePullRequest).not.toHaveBeenCalled();
+    expect(mockError).toHaveBeenCalledWith('PR hygiene check failed.');
+  });
+
   it('should create PR with correct branch when --auto-pr', async () => {
     mockExecuteTask.mockResolvedValueOnce(true);
     mockCreatePullRequest.mockReturnValueOnce({ success: true, url: 'https://github.com/test/pr/1' });

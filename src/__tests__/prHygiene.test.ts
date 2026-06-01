@@ -9,23 +9,49 @@ import { checkPrHygiene, formatPrHygieneFailure } from '../infra/git/prHygiene.j
 
 const mockExecFileSync = vi.mocked(execFileSync);
 
+function mockDiffInspection(options: {
+  nameStatus: string;
+  numstat: string;
+  existingRefs?: readonly string[];
+}): void {
+  const existingRefs = options.existingRefs ?? ['main'];
+  mockExecFileSync.mockImplementation((_cmd, args) => {
+    const argsArr = args as string[];
+    if (argsArr[0] === 'rev-parse') {
+      const ref = (argsArr[2] ?? '').replace(/\^\{commit\}$/, '');
+      if (existingRefs.includes(ref)) {
+        return `${ref}\n`;
+      }
+      throw new Error(`unknown ref: ${ref}`);
+    }
+    if (argsArr[0] === 'diff' && argsArr[1] === '--name-status') {
+      return options.nameStatus;
+    }
+    if (argsArr[0] === 'diff' && argsArr[1] === '--numstat') {
+      return options.numstat;
+    }
+    throw new Error(`unexpected git command: ${argsArr.join(' ')}`);
+  });
+}
+
 describe('checkPrHygiene', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('blocks Takt runtime and generated dependency paths', () => {
-    mockExecFileSync
-      .mockReturnValueOnce([
+    mockDiffInspection({
+      nameStatus: [
         'A\t.takt/runs/sample/reports/00-plan.md',
         'A\tnode_modules/pkg/index.js',
         'M\tsrc/index.ts',
-      ].join('\n'))
-      .mockReturnValueOnce([
+      ].join('\n'),
+      numstat: [
         '10\t0\t.takt/runs/sample/reports/00-plan.md',
         '5\t0\tnode_modules/pkg/index.js',
         '2\t1\tsrc/index.ts',
-      ].join('\n'));
+      ].join('\n'),
+    });
 
     const result = checkPrHygiene('/repo', {
       baseBranch: 'main',
@@ -47,9 +73,10 @@ describe('checkPrHygiene', () => {
   });
 
   it('blocks abnormally large diffs', () => {
-    mockExecFileSync
-      .mockReturnValueOnce('M\tsrc/index.ts')
-      .mockReturnValueOnce('3001\t2500\tsrc/index.ts');
+    mockDiffInspection({
+      nameStatus: 'M\tsrc/index.ts',
+      numstat: '3001\t2500\tsrc/index.ts',
+    });
 
     const result = checkPrHygiene('/repo', {
       baseBranch: 'main',
@@ -69,9 +96,10 @@ describe('checkPrHygiene', () => {
   });
 
   it('passes normal application diffs', () => {
-    mockExecFileSync
-      .mockReturnValueOnce('M\tsrc/index.ts')
-      .mockReturnValueOnce('20\t4\tsrc/index.ts');
+    mockDiffInspection({
+      nameStatus: 'M\tsrc/index.ts',
+      numstat: '20\t4\tsrc/index.ts',
+    });
 
     const result = checkPrHygiene('/repo', {
       baseBranch: 'main',
@@ -83,8 +111,33 @@ describe('checkPrHygiene', () => {
     expect(result.violations).toEqual([]);
   });
 
+  it('resolves provided base branches to remote tracking refs when no local branch exists', () => {
+    mockDiffInspection({
+      existingRefs: ['origin/main'],
+      nameStatus: 'M\tsrc/index.ts',
+      numstat: '20\t4\tsrc/index.ts',
+    });
+
+    const result = checkPrHygiene('/repo', {
+      baseBranch: 'main',
+      branch: 'feat/work',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.baseRef).toBe('origin/main');
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['diff', '--name-status', 'origin/main...feat/work'],
+      expect.objectContaining({ cwd: '/repo' }),
+    );
+  });
+
   it('fails closed when the diff cannot be inspected', () => {
-    mockExecFileSync.mockImplementation(() => {
+    mockExecFileSync.mockImplementation((_cmd, args) => {
+      const argsArr = args as string[];
+      if (argsArr[0] === 'rev-parse') {
+        return 'main\n';
+      }
       throw new Error('fatal: ambiguous argument');
     });
 

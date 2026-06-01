@@ -118,7 +118,7 @@ export function formatPrHygieneFailure(result: PrHygieneCheckResult): string {
 
 function resolveBaseRef(cwd: string, baseBranch: string | undefined): string | undefined {
   if (baseBranch) {
-    return baseBranch;
+    return resolveProvidedBaseRef(cwd, baseBranch);
   }
 
   const candidates = [
@@ -139,6 +139,23 @@ function resolveBaseRef(cwd: string, baseBranch: string | undefined): string | u
       if (resolved) {
         return resolved;
       }
+    } catch {
+      // Try the next fallback.
+    }
+  }
+
+  return undefined;
+}
+
+function resolveProvidedBaseRef(cwd: string, baseBranch: string): string | undefined {
+  const candidates = [baseBranch];
+  if (!baseBranch.startsWith('origin/') && !baseBranch.startsWith('refs/')) {
+    candidates.push(`origin/${baseBranch}`);
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return resolveExistingRef(cwd, candidate);
     } catch {
       // Try the next fallback.
     }
