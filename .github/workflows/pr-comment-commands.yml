@@ -19,9 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       (
         github.event.comment.body == '/review' ||
-        startsWith(github.event.comment.body, '/review ') ||
-        startsWith(github.event.comment.body, '/review
-')
+        startsWith(github.event.comment.body, '/review ')
       ) &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     concurrency:
