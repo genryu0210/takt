@@ -101,4 +101,29 @@ describe('task PR templates', () => {
       'Closes #129',
     ].join('\n'));
   });
+
+  it('uses orderContent as the {task} template value when available', () => {
+    const body = buildTaskPrBody({
+      pullRequestConfig: {
+        bodyTemplate: [
+          '## Task',
+          '{task}',
+        ].join('\n'),
+      },
+      report: 'Task completed successfully.',
+      task: 'generated-task-name',
+      orderContent: [
+        '# Task Spec',
+        '',
+        'Implement the full order.md content.',
+      ].join('\n'),
+    });
+
+    expect(body).toBe([
+      '## Task',
+      '# Task Spec',
+      '',
+      'Implement the full order.md content.',
+    ].join('\n'));
+  });
 });

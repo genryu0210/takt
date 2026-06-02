@@ -113,7 +113,9 @@ export async function postExecutionFlow(options: PostExecutionOptions): Promise<
     const report = workflowIdentifier ? `Workflow \`${workflowIdentifier}\` completed successfully.` : 'Task completed successfully.';
     const existingPr = gitProvider.findExistingPr(branch, projectCwd);
     const pullRequestConfig = resolveConfigValue(projectCwd, 'pullRequest');
-    const prBody = stripTaktManagedPrMarker(pullRequestConfig
+    const shouldUseTaskPrBody = pullRequestConfig?.bodyTemplate !== undefined
+      || pullRequestConfig?.bodySections !== undefined;
+    const prBody = stripTaktManagedPrMarker(shouldUseTaskPrBody && pullRequestConfig
       ? buildTaskPrBody({
           pullRequestConfig,
           issues,

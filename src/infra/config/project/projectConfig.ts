@@ -249,6 +249,7 @@ export function saveProjectConfig(projectDir: string, config: ProjectConfig): vo
     if (config.pipeline.prBodyTemplate !== undefined) pr.pr_body_template = config.pipeline.prBodyTemplate;
     if (Object.keys(pr).length > 0) savePayload.pipeline = pr;
   }
+  delete savePayload.pullRequest;
   delete savePayload.pull_request;
   const rawPullRequest = denormalizePullRequestConfig(config.pullRequest);
   if (rawPullRequest) {

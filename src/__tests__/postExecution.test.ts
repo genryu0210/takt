@@ -106,6 +106,7 @@ describe('postExecutionFlow', () => {
     mockPushBranch.mockReturnValue(undefined);
     mockCommentOnPr.mockReturnValue({ success: true });
     mockCreatePullRequest.mockReturnValue({ success: true, url: 'https://github.com/org/repo/pull/1' });
+    mockBuildPrBody.mockReturnValue('pr-body');
     mockResolveConfigValue.mockReturnValue(undefined);
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
@@ -229,6 +230,29 @@ describe('postExecutionFlow', () => {
       'Closes #129',
     ].join('\n'));
     expect(mockBuildPrBody).not.toHaveBeenCalled();
+  });
+
+  it('pull_request config が title_template だけの場合は既存のPR本文生成を使う', async () => {
+    mockFindExistingPr.mockReturnValue(undefined);
+    mockResolveConfigValue.mockReturnValue({
+      titleTemplate: 'Task: {summary}',
+    });
+    const orderContent = 'Implement a focused task from order.md.';
+
+    await postExecutionFlow({
+      ...baseOptions,
+      orderContent,
+      workflowIdentifier: undefined,
+    });
+
+    const [createOptions] = mockCreatePullRequest.mock.calls[0] as [Record<string, unknown>, string];
+    expect(createOptions.title).toBe('Task: Implement a focused task from order.md.');
+    expect(createOptions.body).toBe('pr-body');
+    expect(mockBuildPrBody).toHaveBeenCalledWith(
+      undefined,
+      'Task completed successfully.',
+      orderContent,
+    );
   });
 
   it('autoCommitAndPush に branch パラメータが渡される', async () => {

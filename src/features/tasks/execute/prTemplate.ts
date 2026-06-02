@@ -113,6 +113,7 @@ function extractSectionValues(...sources: Array<string | undefined>): Partial<Re
 function buildTemplateVars(context: TaskPrTemplateContext): TemplateVars {
   const firstIssue = context.issues?.[0];
   const extracted = extractSectionValues(firstIssue?.body, context.orderContent, context.task);
+  const taskSpec = context.orderContent ?? context.task;
   const summary = extracted.summary
     ?? firstIssue?.title
     ?? firstMeaningfulLine(context.orderContent)
@@ -136,7 +137,7 @@ function buildTemplateVars(context: TaskPrTemplateContext): TemplateVars {
     risks: extracted.risks ?? '',
     notes: extracted.notes ?? '',
     report: context.report,
-    task: context.task,
+    task: taskSpec,
     workflow: context.workflowIdentifier ?? '',
     branch: context.branch ?? '',
   };

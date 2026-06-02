@@ -711,6 +711,7 @@ unexpected_overrides:
       expect(raw).toContain('title_template: "[#{issue}] {summary}"');
       expect(raw).toContain('body_template: |');
       expect(raw).toContain('  ## Summary');
+      expect(raw).not.toMatch(/^pullRequest:/m);
       expect(raw).toContain('persona_providers:');
       expect(raw).toContain('provider: codex');
       expect(raw).toContain('branch_name_strategy: romaji');
