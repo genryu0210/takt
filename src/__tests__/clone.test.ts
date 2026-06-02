@@ -262,7 +262,7 @@ describe('branch and worktree path formatting with issue numbers', () => {
     });
   }
 
-  it('should format branch as takt/{issue}/{slug} when issue number is provided', () => {
+  it('should format branch as {type}/issue-{issue}-{slug} when issue number is provided', () => {
     setupMockForPathTest();
 
     const result = createSharedClone('/project', {
@@ -271,10 +271,10 @@ describe('branch and worktree path formatting with issue numbers', () => {
       issueNumber: 99,
     });
 
-    expect(result.branch).toBe('takt/99/fix-login-timeout');
+    expect(result.branch).toBe('fix/issue-99-fix-login-timeout');
   });
 
-  it('should format branch as takt/{timestamp}-{slug} when no issue number', () => {
+  it('should format branch as {type}/{slug} when no issue number', () => {
     setupMockForPathTest();
 
     const result = createSharedClone('/project', {
@@ -282,7 +282,25 @@ describe('branch and worktree path formatting with issue numbers', () => {
       taskSlug: 'regular-task',
     });
 
-    expect(result.branch).toMatch(/^takt\/\d{8}T\d{4}-regular-task$/);
+    expect(result.branch).toBe('feat/regular-task');
+  });
+
+  it('should infer branch type from issue labels before slug keywords', () => {
+    setupMockForPathTest();
+
+    const result = createSharedClone('/project', {
+      worktree: true,
+      taskSlug: 'add-login-timeout',
+      taskContent: [
+        '## Issue #99: Add login timeout handling',
+        '',
+        '### Labels',
+        'bug',
+      ].join('\n'),
+      issueNumber: 99,
+    });
+
+    expect(result.branch).toBe('fix/issue-99-add-login-timeout');
   });
 
   it('should format worktree path as {timestamp}-{issue}-{slug} when issue number is provided', () => {
@@ -343,7 +361,7 @@ describe('branch and worktree path formatting with issue numbers', () => {
       issueNumber: 99,
     });
 
-    expect(result.branch).toMatch(/^takt\/\d{8}T\d{4}$/);
+    expect(result.branch).toMatch(/^feat\/issue-99-\d{8}T\d{4}$/);
     expect(result.path).toMatch(/\/\d{8}T\d{4}$/);
   });
 });
@@ -383,7 +401,7 @@ describe('resolveBaseBranch', () => {
     expect(fetchCalls.length).toBeGreaterThanOrEqual(1);
     expect(fetchCalls[0]![0]).toBe('fetch');
     expect(fetchCalls[0]![1]).toBe('origin');
-    expect(fetchCalls[0]![2]).toMatch(/^takt\/\d{8}T\d{4}-test-no-fetch$/);
+    expect(fetchCalls[0]![2]).toBe('test/test-no-fetch');
   });
 
   it('should use remote default branch as base when no base_branch config', () => {
@@ -998,7 +1016,7 @@ describe('prefetch existing branch on origin before clone (#557)', () => {
     });
 
     const prefetch = opSequence.find((s) => s.startsWith('project-fetch:'));
-    expect(prefetch).toBe('project-fetch:takt/42/implicit-slug');
+    expect(prefetch).toBe('project-fetch:feat/issue-42-implicit-slug');
     const cloneIdx = opSequence.indexOf('clone');
     const prefetchIdx = opSequence.indexOf(prefetch!);
     expect(prefetchIdx).toBeGreaterThanOrEqual(0);
@@ -1076,7 +1094,7 @@ describe('autoFetch: true — fetch, rev-parse origin/<branch>, reset --hard', (
     expect(fetchCalls).toHaveLength(2);
     expect(fetchCalls[0]![0]).toBe('fetch');
     expect(fetchCalls[0]![1]).toBe('origin');
-    expect(fetchCalls[0]![2]).toMatch(/^takt\/\d{8}T\d{4}-autofetch-task$/);
+    expect(fetchCalls[0]![2]).toBe('feat/autofetch-task');
     expect(fetchCalls[1]).toEqual(['fetch', 'origin']);
 
     expect(revParseOriginCalls).toHaveLength(1);

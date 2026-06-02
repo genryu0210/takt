@@ -146,6 +146,7 @@ describe('confirmAndCreateWorktree', () => {
     expect(mockCreateSharedClone).toHaveBeenCalledWith('/project', {
       worktree: true,
       taskSlug: 'fix-auth',
+      taskContent: 'fix-auth',
     });
   });
 
@@ -195,6 +196,7 @@ describe('confirmAndCreateWorktree', () => {
     expect(mockCreateSharedClone).toHaveBeenCalledWith('/project', {
       worktree: true,
       taskSlug: 'add-auth',
+      taskContent: '認証機能を追加する',
     });
   });
 
@@ -268,6 +270,7 @@ describe('confirmAndCreateWorktree', () => {
     expect(mockCreateSharedClone).toHaveBeenCalledWith('/project', {
       worktree: true,
       taskSlug: 'fix-auth',
+      taskContent: 'fix auth',
     });
   });
 });

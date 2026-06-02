@@ -80,6 +80,7 @@ export async function confirmAndCreateWorktree(
         async () => createSharedClone(cwd, {
           worktree: true,
           taskSlug,
+          taskContent: task,
           ...(baseBranchOverride ? { baseBranch: baseBranchOverride } : {}),
           ...(branchOverride ? { branch: branchOverride } : {}),
         }),

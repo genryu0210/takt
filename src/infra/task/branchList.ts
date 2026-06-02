@@ -7,6 +7,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import * as path from 'node:path';
 import { createLogger } from '../../shared/utils/index.js';
 import {
   createBranchBaseResolutionCache,
@@ -23,6 +25,43 @@ export type { BranchInfo, BranchListItem };
 const log = createLogger('branchList');
 
 const TAKT_BRANCH_PREFIX = 'takt/';
+
+function listCloneMetaBranches(projectDir: string): BranchInfo[] {
+  const metaDir = path.join(projectDir, '.takt', 'clone-meta');
+  if (!existsSync(metaDir)) {
+    return [];
+  }
+
+  const branches: BranchInfo[] = [];
+  for (const entry of readdirSync(metaDir)) {
+    if (!entry.endsWith('.json')) {
+      continue;
+    }
+    try {
+      const raw = JSON.parse(readFileSync(path.join(metaDir, entry), 'utf-8')) as {
+        branch?: unknown;
+        clonePath?: unknown;
+      };
+      if (typeof raw.branch !== 'string') {
+        continue;
+      }
+      const clonePath = typeof raw.clonePath === 'string' ? raw.clonePath : undefined;
+      const commit = (clonePath ? BranchManager.resolveBranchCommit(clonePath, raw.branch) : undefined)
+        ?? BranchManager.resolveBranchCommit(projectDir, raw.branch);
+      if (!commit) {
+        continue;
+      }
+      branches.push({
+        branch: raw.branch,
+        commit,
+        ...(clonePath ? { worktreePath: clonePath } : {}),
+      });
+    } catch (error) {
+      log.debug('Failed to read clone meta branch', { entry, error: String(error) });
+    }
+  }
+  return branches;
+}
 
 /**
  * Manages takt branch listing and metadata enrichment.
@@ -88,12 +127,34 @@ export class BranchManager {
       for (const info of localBranches) {
         branchMap.set(info.branch, info);
       }
+      for (const info of listCloneMetaBranches(projectDir)) {
+        branchMap.set(info.branch, {
+          ...branchMap.get(info.branch),
+          ...info,
+        });
+      }
 
       return Array.from(branchMap.values());
     } catch (err) {
       log.error('Failed to list takt branches', { error: String(err) });
       return [];
     }
+  }
+
+  static resolveBranchCommit(projectDir: string, branch: string): string | undefined {
+    const refs = [branch, `origin/${branch}`];
+    for (const ref of refs) {
+      try {
+        return execFileSync(
+          'git',
+          ['rev-parse', '--short', ref],
+          { cwd: projectDir, encoding: 'utf-8', stdio: 'pipe' },
+        ).trim();
+      } catch {
+        // Try the next ref.
+      }
+    }
+    return undefined;
   }
 
   /** Parse `git branch --list` formatted output into BranchInfo entries */
@@ -163,7 +224,10 @@ export class BranchManager {
 
   /** Extract a human-readable task slug from a takt branch name */
   static extractTaskSlug(branch: string): string {
-    const name = branch.replace(TAKT_BRANCH_PREFIX, '');
+    const name = branch
+      .replace(TAKT_BRANCH_PREFIX, '')
+      .replace(/^(feat|fix|docs|test|refactor|perf|ci|build|chore)\//, '')
+      .replace(/^issue-\d+-/, '');
     const withoutTimestamp = name.replace(/^\d{8,}T?\d{0,6}-?/, '');
     return withoutTimestamp || name;
   }

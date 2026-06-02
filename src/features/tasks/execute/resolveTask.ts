@@ -205,6 +205,7 @@ export async function resolveTaskExecution(
           branch: data.branch,
           ...(preferredBaseBranch ? { baseBranch: preferredBaseBranch } : {}),
           taskSlug,
+          taskContent: task.content,
           issueNumber: data.issue,
         }, abortSignal),
       );
