@@ -185,6 +185,57 @@ describe('addTask', () => {
     expect(task.auto_pr).toBe(true);
   });
 
+  it('should save non-interactive worktree and PR settings without prompting', async () => {
+    mockDetermineWorkflow.mockResolvedValueOnce('backend-mini');
+
+    await addTask(testDir, 'Task content', {
+      workflow: 'backend-mini',
+      worktree: true,
+      branch: 'feat/issue-123-login',
+      baseBranch: 'develop',
+      autoPr: true,
+      draftPr: true,
+    });
+
+    expect(mockPromptInput).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockDetermineWorkflow).toHaveBeenCalledWith(testDir, 'backend-mini');
+    const task = loadTasks(testDir).tasks[0]!;
+    expect(task.workflow).toBe('backend-mini');
+    expect(task.worktree).toBe(true);
+    expect(task.branch).toBe('feat/issue-123-login');
+    expect(task.base_branch).toBe('develop');
+    expect(task.auto_pr).toBe(true);
+    expect(task.draft_pr).toBe(true);
+  });
+
+  it('should treat draftPr as autoPr and enable worktree for non-interactive task settings', async () => {
+    await addTask(testDir, 'Task content', {
+      workflow: 'backend-mini',
+      draftPr: true,
+    });
+
+    expect(mockPromptInput).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+    const task = loadTasks(testDir).tasks[0]!;
+    expect(task.worktree).toBe(true);
+    expect(task.auto_pr).toBe(true);
+    expect(task.draft_pr).toBe(true);
+  });
+
+  it('should enable worktree when a non-interactive branch is provided', async () => {
+    await addTask(testDir, 'Task content', {
+      workflow: 'backend-mini',
+      branch: 'feat/manual-branch',
+    });
+
+    expect(mockPromptInput).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+    const task = loadTasks(testDir).tasks[0]!;
+    expect(task.worktree).toBe(true);
+    expect(task.branch).toBe('feat/manual-branch');
+  });
+
   it('should set base_branch when current branch is not main/master and user confirms', async () => {
     mockGetCurrentBranch.mockReturnValue('feat/awesome');
     mockConfirm.mockResolvedValueOnce(true);

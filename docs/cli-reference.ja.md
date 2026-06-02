@@ -136,7 +136,14 @@ takt add
 
 # GitHub Issue からタスクを追加（Issue 番号がブランチ名に反映される）
 takt add #28
+
+# watch/run で処理するタスクを非対話で追加
+takt add #28 --workflow backend-mini --worktree --auto-pr --draft
 ```
+
+`takt add` では、`--worktree`、`--worktree-path`、`--branch`、`--base-branch`、
+`--auto-pr`、`--draft` を指定すると、その実行設定を確認プロンプトなしでタスクへ保存します。
+`--draft` は `--auto-pr` も暗黙に有効化します。
 
 ### takt run
 

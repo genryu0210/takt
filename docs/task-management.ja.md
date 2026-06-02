@@ -23,6 +23,9 @@ takt add "Implement user authentication"
 
 # GitHub Issue からタスクを追加
 takt add #28
+
+# 非対話で workflow / worktree / draft PR を指定して追加
+takt add #28 --workflow backend-mini --worktree --auto-pr --draft
 ```
 
 タスク追加時に次の項目を確認されます。
@@ -31,6 +34,10 @@ takt add #28
 - **Worktree パス** -- 隔離クローンの作成場所（Enter で自動、またはパスを指定）
 - **ブランチ名** -- カスタムブランチ名（Enter で `takt/{timestamp}-{slug}` が自動生成）
 - **Auto-PR** -- 実行成功後に PR を自動作成するかどうか
+
+`--worktree`、`--worktree-path`、`--branch`、`--base-branch`、`--auto-pr`、`--draft` を指定した場合、
+該当する Worktree / PR 設定の確認プロンプトはスキップされ、指定内容がタスクに保存されます。
+`--draft` は `--auto-pr` も暗黙に有効化します。
 
 ### GitHub Issue 連携
 

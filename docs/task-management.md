@@ -23,6 +23,9 @@ takt add "Implement user authentication"
 
 # Add a task from a GitHub Issue
 takt add #28
+
+# Add a task non-interactively with worktree execution and a draft PR
+takt add #28 --workflow backend-mini --worktree --auto-pr --draft
 ```
 
 When adding a task, you are prompted for:
@@ -31,6 +34,10 @@ When adding a task, you are prompted for:
 - **Worktree path** -- Where to create the isolated clone (Enter for auto, or specify a path)
 - **Branch name** -- Custom branch name (Enter for auto-generated `takt/{timestamp}-{slug}`)
 - **Auto-PR** -- Whether to automatically create a pull request after successful execution
+
+When `--worktree`, `--worktree-path`, `--branch`, `--base-branch`,
+`--auto-pr`, or `--draft` are provided, TAKT saves those task execution
+settings without prompting for them. `--draft` implies `--auto-pr`.
 
 ### GitHub Issue Integration
 

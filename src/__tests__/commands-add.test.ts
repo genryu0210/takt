@@ -170,6 +170,59 @@ describe('CLI add command', () => {
       expect(mockAddTask).toHaveBeenCalledWith('/test/cwd', 'Regular task', { workflow: 'canonical-flow' });
       expect(addCommand?.optsWithGlobals).toHaveBeenCalled();
     });
+
+    it('should pass non-interactive worktree and PR options to addTask', async () => {
+      Object.assign(mockOpts, {
+        workflow: 'backend-mini',
+        worktree: true,
+        branch: 'feat/issue-123-login',
+        baseBranch: 'develop',
+        autoPr: true,
+        draft: true,
+      });
+      const addAction = commandActions.get('root.add');
+      const addCommand = commandMocks.get('root.add');
+
+      expect(addAction).toBeTypeOf('function');
+
+      await addAction?.('#123', addCommand as never);
+
+      expect(mockAddTask).toHaveBeenCalledWith('/test/cwd', '#123', {
+        workflow: 'backend-mini',
+        worktree: true,
+        branch: 'feat/issue-123-login',
+        baseBranch: 'develop',
+        autoPr: true,
+        draftPr: true,
+      });
+    });
+
+    it('should pass a custom worktree path to addTask', async () => {
+      Object.assign(mockOpts, {
+        worktreePath: '/tmp/takt-worktree',
+      });
+      const addAction = commandActions.get('root.add');
+      const addCommand = commandMocks.get('root.add');
+
+      await addAction?.('Regular task', addCommand as never);
+
+      expect(mockAddTask).toHaveBeenCalledWith('/test/cwd', 'Regular task', {
+        worktree: '/tmp/takt-worktree',
+      });
+    });
+
+    it('should treat --draft as implying autoPr for addTask', async () => {
+      mockOpts.draft = true;
+      const addAction = commandActions.get('root.add');
+      const addCommand = commandMocks.get('root.add');
+
+      await addAction?.('Regular task', addCommand as never);
+
+      expect(mockAddTask).toHaveBeenCalledWith('/test/cwd', 'Regular task', {
+        autoPr: true,
+        draftPr: true,
+      });
+    });
   });
 
   it('should not register switch command', () => {
