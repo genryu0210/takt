@@ -7,6 +7,7 @@
 
 import { autoCommitAndPush } from '../../../infra/task/index.js';
 import { pushBranch } from '../../../infra/task/git.js';
+import { resolveConfigValue } from '../../../infra/config/index.js';
 import { info, error, success } from '../../../shared/ui/index.js';
 import { createLogger, getErrorMessage } from '../../../shared/utils/index.js';
 import {
@@ -19,6 +20,7 @@ import {
   stripTaktManagedPrMarker,
 } from '../../../infra/git/index.js';
 import type { Issue, CreatePrResult } from '../../../infra/git/index.js';
+import { buildTaskPrBody, buildTaskPrTitle } from './prTemplate.js';
 
 const log = createLogger('postExecution');
 
@@ -127,7 +129,20 @@ export async function postExecutionFlow(options: PostExecutionOptions): Promise<
     const gitProvider = getGitProvider();
     const report = workflowIdentifier ? `Workflow \`${workflowIdentifier}\` completed successfully.` : 'Task completed successfully.';
     const existingPr = gitProvider.findExistingPr(branch, projectCwd);
-    const prBody = stripTaktManagedPrMarker(buildPrBody(issues, report, orderContent));
+    const pullRequestConfig = resolveConfigValue(projectCwd, 'pullRequest');
+    const shouldUseTaskPrBody = pullRequestConfig?.bodyTemplate !== undefined
+      || pullRequestConfig?.bodySections !== undefined;
+    const prBody = stripTaktManagedPrMarker(shouldUseTaskPrBody && pullRequestConfig
+      ? buildTaskPrBody({
+          pullRequestConfig,
+          issues,
+          report,
+          task,
+          orderContent,
+          branch,
+          workflowIdentifier,
+        })
+      : buildPrBody(issues, report, orderContent));
     if (existingPr) {
       const commentResult = gitProvider.commentOnPr(existingPr.number, prBody, projectCwd);
       if (commentResult.success) {
@@ -143,10 +158,22 @@ export async function postExecutionFlow(options: PostExecutionOptions): Promise<
       }
     } else {
       info('Creating pull request...');
-      const firstIssue = issues?.[0];
-      const issuePrefix = firstIssue ? `[#${firstIssue.number}] ` : '';
-      const truncatedTask = task.length > 100 - issuePrefix.length ? `${task.slice(0, 100 - issuePrefix.length - 3)}...` : task;
-      const prTitle = issuePrefix + truncatedTask;
+      const prTitle = pullRequestConfig
+        ? buildTaskPrTitle({
+            pullRequestConfig,
+            issues,
+            report,
+            task,
+            orderContent,
+            branch,
+            workflowIdentifier,
+          })
+        : (() => {
+            const firstIssue = issues?.[0];
+            const issuePrefix = firstIssue ? `[#${firstIssue.number}] ` : '';
+            const truncatedTask = task.length > 100 - issuePrefix.length ? `${task.slice(0, 100 - issuePrefix.length - 3)}...` : task;
+            return issuePrefix + truncatedTask;
+          })();
       const prResult: CreatePrResult = createPullRequestSafely(gitProvider, {
         branch,
         title: prTitle,

@@ -10,6 +10,7 @@ import {
 } from '../providerReference.js';
 import {
   normalizePipelineConfig,
+  normalizePullRequestConfig,
   normalizeProviderProfiles,
   denormalizeProviderProfiles,
   denormalizeProviderOptions,
@@ -24,6 +25,7 @@ import {
   normalizeRuntime,
   normalizeRateLimitFallback,
   denormalizeRateLimitFallback,
+  denormalizePullRequestConfig,
 } from '../configNormalizers.js';
 import {
   resolveAliasedPreviewCount,
@@ -83,6 +85,7 @@ export function loadProjectConfig(projectDir: string): ProjectConfig {
     provider_options,
     analytics,
     pipeline,
+    pull_request,
     assistant,
     takt_providers,
     persona_providers,
@@ -107,6 +110,9 @@ export function loadProjectConfig(projectDir: string): ProjectConfig {
   const normalizedPipeline = normalizePipelineConfig(
     pipeline as { default_branch_prefix?: string; commit_message_template?: string; pr_body_template?: string } | undefined,
   );
+  const normalizedPullRequest = normalizePullRequestConfig(
+    pull_request as { title_template?: string; body_template?: string; body_sections?: NonNullable<ProjectConfig['pullRequest']>['bodySections'] } | undefined,
+  );
   const normalizedPersonaProviders = normalizePersonaProviders(
     persona_providers as Record<string, string | {
       type?: string;
@@ -128,6 +134,7 @@ export function loadProjectConfig(projectDir: string): ProjectConfig {
   return {
     language: language as ProjectConfig['language'],
     pipeline: normalizedPipeline,
+    pullRequest: normalizedPullRequest,
     assistant: normalizeAssistantConfig(assistant),
     taktProviders: normalizedTaktProviders,
     personaProviders: normalizedPersonaProviders,
@@ -241,6 +248,12 @@ export function saveProjectConfig(projectDir: string, config: ProjectConfig): vo
     if (config.pipeline.commitMessageTemplate !== undefined) pr.commit_message_template = config.pipeline.commitMessageTemplate;
     if (config.pipeline.prBodyTemplate !== undefined) pr.pr_body_template = config.pipeline.prBodyTemplate;
     if (Object.keys(pr).length > 0) savePayload.pipeline = pr;
+  }
+  delete savePayload.pullRequest;
+  delete savePayload.pull_request;
+  const rawPullRequest = denormalizePullRequestConfig(config.pullRequest);
+  if (rawPullRequest) {
+    savePayload.pull_request = rawPullRequest;
   }
   const rawPersonaProviders = denormalizePersonaProviders(config.personaProviders);
   if (rawPersonaProviders && Object.keys(rawPersonaProviders).length > 0) {

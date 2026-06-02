@@ -20,6 +20,7 @@ const {
   mockFormatPrHygieneFailure,
   mockCreatePullRequestSafely,
   mockStripTaktManagedPrMarker,
+  mockResolveConfigValue,
 } =
   vi.hoisted(() => ({
     mockAutoCommitAndPush: vi.fn(),
@@ -45,6 +46,7 @@ const {
       .join('')
       .replace(/\n{3,}/g, '\n\n')
       .trimEnd()),
+    mockResolveConfigValue: vi.fn(),
   }));
 
 vi.mock('../infra/task/index.js', () => ({
@@ -58,6 +60,9 @@ vi.mock('../infra/task/git.js', async (importOriginal) => {
     pushBranch: (...args: unknown[]) => mockPushBranch(...args),
   };
 });
+vi.mock('../infra/config/index.js', () => ({
+  resolveConfigValue: (...args: unknown[]) => mockResolveConfigValue(...args),
+}));
 vi.mock('../infra/git/index.js', () => ({
   getGitProvider: () => ({
     findExistingPr: (...args: unknown[]) => mockFindExistingPr(...args),
@@ -113,6 +118,8 @@ describe('postExecutionFlow', () => {
     mockPushBranch.mockReturnValue(undefined);
     mockCommentOnPr.mockReturnValue({ success: true });
     mockCreatePullRequest.mockReturnValue({ success: true, url: 'https://github.com/org/repo/pull/1' });
+    mockBuildPrBody.mockReturnValue('pr-body');
+    mockResolveConfigValue.mockReturnValue(undefined);
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     }));
@@ -203,6 +210,69 @@ describe('postExecutionFlow', () => {
     }));
     expect(String(createOptions.body)).not.toContain(TAKT_MANAGED_PR_MARKER);
     expect(mockBuildTaktManagedPrOptions).not.toHaveBeenCalled();
+  });
+
+  it('pull_request config がある場合は title/body template を通常task auto PRに使う', async () => {
+    mockFindExistingPr.mockReturnValue(undefined);
+    mockResolveConfigValue.mockReturnValue({
+      titleTemplate: '[#{issue}] {summary}',
+      bodySections: ['summary', 'background', 'verification'],
+    });
+    const issues: Issue[] = [{
+      number: 129,
+      title: 'Add visit nursing comment',
+      body: '## Background\nVisit nursing users need a supplemental comment.',
+      labels: [],
+      comments: [],
+    }];
+
+    await postExecutionFlow({
+      ...baseOptions,
+      issues,
+      workflowIdentifier: 'backend-lite',
+    });
+
+    const [createOptions] = mockCreatePullRequest.mock.calls[0] as [Record<string, unknown>, string];
+    expect(createOptions.title).toBe('[#129] Add visit nursing comment');
+    expect(createOptions.body).toBe([
+      '## Summary',
+      '',
+      'Add visit nursing comment',
+      '',
+      '## Background',
+      '',
+      'Visit nursing users need a supplemental comment.',
+      '',
+      '## Verification',
+      '',
+      'Workflow `backend-lite` completed successfully.',
+      '',
+      'Closes #129',
+    ].join('\n'));
+    expect(mockBuildPrBody).not.toHaveBeenCalled();
+  });
+
+  it('pull_request config が title_template だけの場合は既存のPR本文生成を使う', async () => {
+    mockFindExistingPr.mockReturnValue(undefined);
+    mockResolveConfigValue.mockReturnValue({
+      titleTemplate: 'Task: {summary}',
+    });
+    const orderContent = 'Implement a focused task from order.md.';
+
+    await postExecutionFlow({
+      ...baseOptions,
+      orderContent,
+      workflowIdentifier: undefined,
+    });
+
+    const [createOptions] = mockCreatePullRequest.mock.calls[0] as [Record<string, unknown>, string];
+    expect(createOptions.title).toBe('Task: Implement a focused task from order.md.');
+    expect(createOptions.body).toBe('pr-body');
+    expect(mockBuildPrBody).toHaveBeenCalledWith(
+      undefined,
+      'Task completed successfully.',
+      orderContent,
+    );
   });
 
   it('autoCommitAndPush に branch パラメータが渡される', async () => {

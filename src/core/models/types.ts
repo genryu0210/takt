@@ -99,5 +99,7 @@ export type {
   ResolvedObservabilityConfig,
   Language,
   PipelineConfig,
+  PullRequestBodySection,
+  PullRequestConfig,
   ProjectConfig,
 } from './config-types.js';

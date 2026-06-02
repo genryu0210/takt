@@ -117,6 +117,27 @@ export interface PipelineConfig {
   prBodyTemplate?: string;
 }
 
+export type PullRequestBodySection =
+  | 'summary'
+  | 'background'
+  | 'changes'
+  | 'acceptance_criteria'
+  | 'out_of_scope'
+  | 'verification'
+  | 'review_focus'
+  | 'risks'
+  | 'notes';
+
+/** Normal task auto PR configuration */
+export interface PullRequestConfig {
+  /** PR title template. Variables include {summary}, {title}, {issue}, {workflow}, {branch}. */
+  titleTemplate?: string;
+  /** Full PR body template. Variables include body section keys plus {issue}, {report}, {task}. */
+  bodyTemplate?: string;
+  /** Ordered body sections to render when bodyTemplate is not set. Empty sections are omitted. */
+  bodySections?: PullRequestBodySection[];
+}
+
 /** Workflow-level runtime.prepare policy */
 export interface WorkflowRuntimePrepareConfig {
   /** Allow custom script paths from workflow YAML (default: false) */
@@ -198,6 +219,8 @@ export interface ProjectConfig {
   withSubmodules?: boolean;
   /** Pipeline execution settings */
   pipeline?: PipelineConfig;
+  /** Normal task auto PR settings */
+  pullRequest?: PullRequestConfig;
   /** TAKT internal target provider/model overrides */
   taktProviders?: TaktProvidersConfig;
   /** Initial context files explicitly loaded by assistant interactive mode */

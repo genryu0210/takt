@@ -527,6 +527,30 @@ describe('loadGlobalConfig', () => {
     });
   });
 
+  it('should accept pull_request in global config', () => {
+    const taktDir = join(testHomeDir, '.takt');
+    mkdirSync(taktDir, { recursive: true });
+    writeFileSync(
+      getGlobalConfigPath(),
+      [
+        'language: en',
+        'pull_request:',
+        '  title_template: "[#{issue}] {summary}"',
+        '  body_sections:',
+        '    - summary',
+        '    - verification',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    expect(() => loadGlobalConfig()).not.toThrow();
+    const config = loadGlobalConfig();
+    expect(config.pullRequest).toEqual({
+      titleTemplate: '[#{issue}] {summary}',
+      bodySections: ['summary', 'verification'],
+    });
+  });
+
   it('should load auto_pr config from config.yaml', () => {
     const taktDir = join(testHomeDir, '.takt');
     mkdirSync(taktDir, { recursive: true });
