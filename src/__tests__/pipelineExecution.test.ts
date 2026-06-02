@@ -10,6 +10,14 @@ const mockBuildPrBody = vi.fn(() => 'Default PR body');
 const mockBuildTaktManagedPrOptions = vi.fn((body: string) => ({
   body: `${body}\n\n<!-- takt:managed -->`,
 }));
+const mockCheckPrHygiene = vi.fn(() => ({
+  ok: true,
+  branch: 'takt/test',
+  changedLines: 0,
+  changedPaths: [],
+  violations: [],
+}));
+const mockFormatPrHygieneFailure = vi.fn(() => 'PR hygiene check failed.');
 const mockStripTaktManagedPrMarker = vi.fn((body: string) => body
   .split('<!-- takt:managed -->')
   .join('')
@@ -32,6 +40,8 @@ vi.mock('../infra/git/index.js', () => ({
   ),
   buildPrBody: (...args: unknown[]) => mockBuildPrBody(...args),
   buildTaktManagedPrOptions: (...args: unknown[]) => mockBuildTaktManagedPrOptions(...args as [string]),
+  checkPrHygiene: (...args: unknown[]) => mockCheckPrHygiene(...args),
+  formatPrHygieneFailure: (...args: unknown[]) => mockFormatPrHygieneFailure(...args),
   stripTaktManagedPrMarker: (...args: unknown[]) => mockStripTaktManagedPrMarker(...args as [string]),
   formatPrReviewAsTask: (...args: unknown[]) => mockFormatPrReviewAsTask(...args),
   createPullRequestSafely: (...args: unknown[]) => mockCreatePullRequestSafely(...args),
@@ -106,6 +116,14 @@ describe('executePipeline', () => {
     mockBuildTaktManagedPrOptions.mockImplementation((body: string) => ({
       body: `${body}\n\n<!-- takt:managed -->`,
     }));
+    mockCheckPrHygiene.mockReturnValue({
+      ok: true,
+      branch: 'takt/test',
+      changedLines: 0,
+      changedPaths: [],
+      violations: [],
+    });
+    mockFormatPrHygieneFailure.mockReturnValue('PR hygiene check failed.');
     mockCreatePullRequestSafely.mockImplementation((provider, options, cwd) => {
       try {
         return provider.createPullRequest(options, cwd);
@@ -353,6 +371,30 @@ describe('executePipeline', () => {
     });
 
     expect(exitCode).toBe(5);
+  });
+
+  it('should stop before pushing to origin when auto PR hygiene fails after commit', async () => {
+    mockExecuteTask.mockResolvedValueOnce(true);
+    mockCheckPrHygiene.mockReturnValueOnce({
+      ok: false,
+      branch: 'fix/my-branch',
+      changedLines: 20_000,
+      changedPaths: ['.takt/runs/sample/report.md'],
+      violations: [{ type: 'blocked-path', message: 'Blocked generated/runtime paths detected.' }],
+    });
+
+    const exitCode = await executePipeline({
+      task: 'Fix the bug',
+      workflow: 'default',
+      branch: 'fix/my-branch',
+      autoPr: true,
+      cwd: '/tmp/test',
+    });
+
+    expect(exitCode).toBe(4);
+    expect(mockPushBranch).not.toHaveBeenCalled();
+    expect(mockCreatePullRequest).not.toHaveBeenCalled();
+    expect(mockError).toHaveBeenCalledWith('PR hygiene check failed.');
   });
 
   it('should create PR with correct branch when --auto-pr', async () => {

@@ -10,6 +10,7 @@ import {
   EXIT_GIT_OPERATION_FAILED,
   EXIT_PR_CREATION_FAILED,
 } from '../../shared/exitCodes.js';
+import { checkPrHygiene, formatPrHygieneFailure } from '../../infra/git/index.js';
 import {
   resolveTaskContent,
   resolveExecutionContext,
@@ -62,7 +63,20 @@ async function runPipeline(options: PipelineExecutionOptions): Promise<PipelineO
 
   if (!skipGit && context.branch) {
     const commitMessage = buildCommitMessage(pipelineConfig, taskContent.issue, options.task);
-    if (!commitAndPush(context.execCwd, cwd, context.branch, commitMessage, context.isWorktree)) {
+    const beforeOriginPush = autoPr
+      ? () => {
+          const hygieneResult = checkPrHygiene(cwd, {
+            baseBranch: context.baseBranch,
+            branch: context.branch!,
+          });
+          if (!hygieneResult.ok) {
+            error(formatPrHygieneFailure(hygieneResult));
+            return false;
+          }
+          return true;
+        }
+      : undefined;
+    if (!commitAndPush(context.execCwd, cwd, context.branch, commitMessage, context.isWorktree, { beforeOriginPush })) {
       return { exitCode: EXIT_GIT_OPERATION_FAILED, result: buildResult({ branch: context.branch }) };
     }
   }

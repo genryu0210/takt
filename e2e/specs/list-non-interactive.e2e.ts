@@ -11,6 +11,7 @@ import { formatTaktRunResult, runTakt } from '../helpers/takt-runner';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const MOCK_WORKFLOW_PATH = resolve(__dirname, '../fixtures/workflows/mock-single-step.yaml');
+const MOCK_WRITE_WORKFLOW_PATH = resolve(__dirname, '../fixtures/workflows/mock-single-step-write-readme.yaml');
 const MOCK_SCENARIO_PATH = resolve(__dirname, '../fixtures/scenarios/execute-done.json');
 
 interface CompletedTaskMeta {
@@ -39,7 +40,7 @@ function writeCompletedTask(repoPath: string, name: string, branch: string): voi
   );
 }
 
-function writePendingWorktreeTask(repoPath: string, name: string, content: string): void {
+function writePendingWorktreeTask(repoPath: string, name: string, content: string, workflowPath = MOCK_WORKFLOW_PATH): void {
   const taktDir = join(repoPath, '.takt');
   mkdirSync(taktDir, { recursive: true });
   const now = new Date().toISOString();
@@ -50,12 +51,22 @@ function writePendingWorktreeTask(repoPath: string, name: string, content: strin
       `  - name: ${name}`,
       '    status: pending',
       `    content: "${content.replaceAll('"', '\\"')}"`,
-      `    workflow: "${MOCK_WORKFLOW_PATH}"`,
+      `    workflow: "${workflowPath}"`,
       '    worktree: true',
       `    created_at: "${now}"`,
       '    started_at: null',
       '    completed_at: null',
     ].join('\n'),
+    'utf-8',
+  );
+}
+
+function enableWorkflowCommandGates(repoPath: string): void {
+  const taktDir = join(repoPath, '.takt');
+  mkdirSync(taktDir, { recursive: true });
+  writeFileSync(
+    join(taktDir, 'config.yaml'),
+    'workflow_command_gates:\n  custom_scripts: true\n',
     'utf-8',
   );
 }
@@ -201,7 +212,9 @@ describe('E2E: List tasks non-interactive (takt list)', () => {
       testRepo.path,
       taskName,
       'Add a single line "E2E try merge passed" to README.md',
+      MOCK_WRITE_WORKFLOW_PATH,
     );
+    enableWorkflowCommandGates(testRepo.path);
 
     const runResult = runTakt({
       args: ['run', '--provider', 'mock'],
@@ -260,7 +273,9 @@ describe('E2E: List tasks non-interactive (takt list)', () => {
       testRepo.path,
       taskName,
       'Add a single line "E2E sync passed" to README.md',
+      MOCK_WRITE_WORKFLOW_PATH,
     );
+    enableWorkflowCommandGates(testRepo.path);
 
     const runResult = runTakt({
       args: ['run', '--provider', 'mock'],

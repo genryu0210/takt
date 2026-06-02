@@ -27,6 +27,14 @@ export {
   buildTaktManagedPrOptions,
   stripTaktManagedPrMarker,
 } from './format.js';
+export {
+  checkPrHygiene,
+  formatPrHygieneFailure,
+  DEFAULT_PR_HYGIENE_MAX_CHANGED_LINES,
+  type PrHygieneCheckOptions,
+  type PrHygieneCheckResult,
+  type PrHygieneViolation,
+} from './prHygiene.js';
 
 let provider: GitProvider | undefined;
 let currentProviderType: VcsProviderType | undefined;

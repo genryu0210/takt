@@ -78,6 +78,33 @@ describe('stageAndCommit', () => {
     expect(committedFiles).toBe('app.ts');
   });
 
+  it('should not commit tracked .takt files from auto commits', () => {
+    mkdirSync(join(testDir, '.takt'), { recursive: true });
+    writeFileSync(join(testDir, '.takt', 'config.yaml'), 'language: ja\n');
+    execFileSync('git', ['add', '.takt/config.yaml'], { cwd: testDir });
+    execFileSync('git', ['commit', '-m', 'Track project takt config'], { cwd: testDir });
+
+    writeFileSync(join(testDir, '.takt', 'config.yaml'), 'language: en\n');
+    writeFileSync(join(testDir, 'app.ts'), 'console.log("hello");');
+
+    const hash = stageAndCommit(testDir, 'add app');
+    expect(hash).toBeDefined();
+
+    const committedFiles = execFileSync('git', ['diff-tree', '--no-commit-id', '-r', '--name-only', 'HEAD'], {
+      cwd: testDir,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim();
+    const taktStatus = execFileSync('git', ['status', '--short', '--', '.takt/config.yaml'], {
+      cwd: testDir,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trimEnd();
+
+    expect(committedFiles).toBe('app.ts');
+    expect(taktStatus).toBe(' M .takt/config.yaml');
+  });
+
   it('should return undefined when there are no changes', () => {
     const hash = stageAndCommit(testDir, 'empty');
     expect(hash).toBeUndefined();

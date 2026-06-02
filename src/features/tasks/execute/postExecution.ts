@@ -12,7 +12,9 @@ import { createLogger, getErrorMessage } from '../../../shared/utils/index.js';
 import {
   buildPrBody,
   buildTaktManagedPrOptions,
+  checkPrHygiene,
   createPullRequestSafely,
+  formatPrHygieneFailure,
   getGitProvider,
   stripTaktManagedPrMarker,
 } from '../../../infra/git/index.js';
@@ -23,6 +25,7 @@ const log = createLogger('postExecution');
 const AUTO_COMMIT_FAILURE_MESSAGE = 'Auto-commit failed before PR creation.';
 const LOCAL_PUSH_FAILURE_MESSAGE = 'Push to main repo failed after commit creation.';
 const ORIGIN_PUSH_FAILURE_MESSAGE = 'Failed to push branch to origin.';
+const PR_HYGIENE_FAILURE_MESSAGE = 'PR hygiene check failed before PR creation.';
 const PR_COMMENT_FAILURE_MESSAGE = 'Failed to update pull request comment.';
 const PR_CREATION_FAILURE_MESSAGE = 'Failed to create pull request.';
 
@@ -88,6 +91,20 @@ export async function postExecutionFlow(options: PostExecutionOptions): Promise<
     });
     error(LOCAL_PUSH_FAILURE_MESSAGE);
     return { taskFailed: true, taskError: LOCAL_PUSH_FAILURE_MESSAGE };
+  }
+
+  if (commitResult.commitHash && branch && shouldCreatePr) {
+    const hygieneResult = checkPrHygiene(projectCwd, { baseBranch, branch });
+    if (!hygieneResult.ok) {
+      const hygieneMessage = formatPrHygieneFailure(hygieneResult);
+      log.error('PR hygiene check failed before PR creation', {
+        branch,
+        baseBranch,
+        outcome: PR_HYGIENE_FAILURE_MESSAGE,
+      });
+      error(hygieneMessage);
+      return { prFailed: true, prError: hygieneMessage };
+    }
   }
 
   if (commitResult.commitHash && branch && (shouldPublishBranchToOrigin === true || shouldCreatePr)) {
