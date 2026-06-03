@@ -77,6 +77,7 @@ export type PrReviewThreadState = 'active' | 'outdated-unresolved' | 'resolved';
 export interface PrReviewComment {
   author: string;
   body: string;
+  databaseId?: number;
   path?: string;
   line?: number;
   url?: string;

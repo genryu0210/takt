@@ -686,6 +686,7 @@ describe('fetchPrReviewComments', () => {
       isOutdated: false,
       comments: [
         {
+          databaseId: 1001,
           body: 'Fix null check here',
           path: 'src/auth.ts',
           line: 42,
@@ -702,6 +703,7 @@ describe('fetchPrReviewComments', () => {
       resolvedBy: { login: 'coderabbitai[bot]' },
       comments: [
         {
+          databaseId: 1002,
           body: 'Already addressed in a later commit',
           path: 'src/auth.ts',
           line: null,
@@ -740,6 +742,7 @@ describe('fetchPrReviewComments', () => {
       {
         author: 'reviewer1',
         body: 'Fix null check here',
+        databaseId: 1001,
         path: 'src/auth.ts',
         line: 42,
         url: 'https://github.com/org/repo/pull/456#discussion_r1',
@@ -749,6 +752,7 @@ describe('fetchPrReviewComments', () => {
       {
         author: 'coderabbitai[bot]',
         body: 'Already addressed in a later commit',
+        databaseId: 1002,
         path: 'src/auth.ts',
         line: 12,
         url: 'https://github.com/org/repo/pull/456#discussion_r2',

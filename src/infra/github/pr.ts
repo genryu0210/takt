@@ -138,6 +138,7 @@ query($owner:String!, $repo:String!, $number:Int!, $endCursor:String) {
           comments(first:${REVIEW_THREAD_COMMENTS_PER_PAGE}) {
             pageInfo { hasNextPage endCursor }
             nodes {
+              databaseId
               path
               line
               originalLine
@@ -160,6 +161,7 @@ query($threadId:ID!, $commentsEndCursor:String) {
       comments(first:${REVIEW_THREAD_COMMENTS_PER_PAGE}, after:$commentsEndCursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
+          databaseId
           path
           line
           originalLine
@@ -220,6 +222,7 @@ interface GhGraphqlReviewThread {
 }
 
 interface GhGraphqlReviewThreadComment {
+  databaseId?: number;
   path: string;
   line: number | null;
   originalLine: number | null;
@@ -353,6 +356,7 @@ function mapReviewThreadComments(
     return {
       author: resolveReviewThreadCommentAuthor(comment),
       body: comment.body,
+      ...(comment.databaseId !== undefined ? { databaseId: comment.databaseId } : {}),
       path: comment.path,
       ...(line !== undefined ? { line } : {}),
       url: comment.url,

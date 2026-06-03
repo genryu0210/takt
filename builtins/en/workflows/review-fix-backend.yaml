@@ -169,7 +169,7 @@ steps:
     pass_previous_response: false
     rules:
       - condition: All validations complete, ready to merge
-        next: COMPLETE
+        next: reply
       - condition: Issues detected
         next: fix_supervisor
     output_contracts:
@@ -179,6 +179,25 @@ steps:
         - name: summary.md
           format: summary
           use_judge: false
+
+  - name: reply
+    edit: false
+    persona: pr-commenter
+    provider_options:
+      claude:
+        allowed_tools:
+          - Bash
+    instruction: reply-review-comments
+    pass_previous_response: false
+    rules:
+      - condition: Replies posted
+        next: COMPLETE
+      - condition: Some comments could not be replied to
+        next: COMPLETE
+    output_contracts:
+      report:
+        - name: review-replies.md
+          format: review-replies
 
   - name: fix_supervisor
     edit: true
