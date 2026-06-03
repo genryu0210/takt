@@ -686,6 +686,8 @@ describe('fetchPrReviewComments', () => {
       isOutdated: false,
       comments: [
         {
+          fullDatabaseId: '1001',
+          replyTo: null,
           body: 'Fix null check here',
           path: 'src/auth.ts',
           line: 42,
@@ -702,6 +704,8 @@ describe('fetchPrReviewComments', () => {
       resolvedBy: { login: 'coderabbitai[bot]' },
       comments: [
         {
+          fullDatabaseId: '1002',
+          replyTo: null,
           body: 'Already addressed in a later commit',
           path: 'src/auth.ts',
           line: null,
@@ -740,6 +744,7 @@ describe('fetchPrReviewComments', () => {
       {
         author: 'reviewer1',
         body: 'Fix null check here',
+        replyCommentId: '1001',
         path: 'src/auth.ts',
         line: 42,
         url: 'https://github.com/org/repo/pull/456#discussion_r1',
@@ -749,6 +754,7 @@ describe('fetchPrReviewComments', () => {
       {
         author: 'coderabbitai[bot]',
         body: 'Already addressed in a later commit',
+        replyCommentId: '1002',
         path: 'src/auth.ts',
         line: 12,
         url: 'https://github.com/org/repo/pull/456#discussion_r2',
@@ -819,6 +825,71 @@ describe('fetchPrReviewComments', () => {
         path: 'src/index.ts',
         line: 7,
         url: 'https://github.com/org/repo/pull/11#discussion_r1',
+        threadState: 'active',
+        isOutdated: false,
+      },
+    ]);
+  });
+
+  it('should expose reply IDs only for top-level review thread comments', () => {
+    const ghResponse = {
+      number: 18,
+      title: 'Thread replies',
+      body: '',
+      url: 'https://github.com/org/repo/pull/18',
+      headRefName: 'fix/thread-replies',
+      comments: [],
+      reviews: [],
+      files: [],
+    };
+    const thread = createReviewThread({
+      id: 'thread-18',
+      isResolved: false,
+      isOutdated: false,
+      comments: [
+        {
+          fullDatabaseId: '9223372036854775808',
+          replyTo: null,
+          body: 'Top-level actionable review comment',
+          path: 'src/index.ts',
+          line: 11,
+          originalLine: 11,
+          url: 'https://github.com/org/repo/pull/18#discussion_r1',
+          author: { login: 'reviewer-root' },
+        },
+        {
+          fullDatabaseId: '9223372036854775809',
+          replyTo: { fullDatabaseId: '9223372036854775808' },
+          body: 'Existing reply in the same thread',
+          path: 'src/index.ts',
+          line: 11,
+          originalLine: 11,
+          url: 'https://github.com/org/repo/pull/18#discussion_r2',
+          author: { login: 'reviewer-reply' },
+        },
+      ],
+    });
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(ghResponse))
+      .mockReturnValueOnce(withReviewThreadsResponse([thread]));
+    const result = fetchPrReviewComments(18, '/project');
+    expect(result.reviews).toEqual([
+      {
+        author: 'reviewer-root',
+        body: 'Top-level actionable review comment',
+        replyCommentId: '9223372036854775808',
+        path: 'src/index.ts',
+        line: 11,
+        url: 'https://github.com/org/repo/pull/18#discussion_r1',
+        threadState: 'active',
+        isOutdated: false,
+      },
+      {
+        author: 'reviewer-reply',
+        body: 'Existing reply in the same thread',
+        path: 'src/index.ts',
+        line: 11,
+        url: 'https://github.com/org/repo/pull/18#discussion_r2',
         threadState: 'active',
         isOutdated: false,
       },

@@ -182,7 +182,6 @@ describe('Workflow Patterns IT: default workflow (happy path)', () => {
 
     expect(state.status).toBe('completed');
   });
-
 });
 
 describe('Workflow Patterns IT: default workflow (parallel reviewers)', () => {
@@ -672,6 +671,7 @@ describe('Workflow Patterns IT: frontend-review-fix workflow (fix loop)', () => 
 
     expect(state.status).toBe('completed');
   });
+
 });
 
 describe('Workflow Patterns IT: backend-review-fix workflow (fix loop)', () => {
@@ -687,7 +687,7 @@ describe('Workflow Patterns IT: backend-review-fix workflow (fix loop)', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('fix loop: reviewers any("needs_fix") → fix → reviewers (all approved) → supervise → COMPLETE', async () => {
+  it('fix loop: reviewers any("needs_fix") → fix → reviewers (all approved) → supervise → reply → COMPLETE', async () => {
     const config = loadWorkflow('review-fix-backend', testDir);
     expect(config).not.toBeNull();
 
@@ -705,12 +705,33 @@ describe('Workflow Patterns IT: backend-review-fix workflow (fix loop)', () => {
       { persona: 'qa-reviewer', status: 'done', content: 'approved' },
       // Supervisor
       { persona: 'dual-supervisor', status: 'done', content: '[SUPERVISE:1]\n\nAll validations complete, ready to merge.' },
+      // Reply
+      { persona: 'pr-commenter', status: 'done', content: '[REPLY:1]\n\nReplies posted.' },
     ]);
 
     const engine = createEngine(config!, testDir, 'Review backend PR');
     const state = await engine.run();
 
     expect(state.status).toBe('completed');
+  });
+
+  it('routes successful supervision to the reply step before completing', () => {
+    const config = loadWorkflow('review-fix-backend', testDir);
+    expect(config).not.toBeNull();
+
+    const supervise = config!.steps.find((step) => step.name === 'supervise');
+    expect(
+      supervise?.rules?.some((rule) => rule.next === 'reply'),
+      'review-fix-backend supervise should route ready state to reply',
+    ).toBe(true);
+
+    const reply = config!.steps.find((step) => step.name === 'reply');
+    expect(reply, 'review-fix-backend should define reply').toBeDefined();
+    expect(reply?.persona).toBe('pr-commenter');
+    expect(reply?.instruction).toContain('# Reply to Review Comments');
+    expect(reply?.providerOptions?.claude?.allowedTools).toEqual(['Bash']);
+    expect(reply?.rules?.every((rule) => rule.next === 'COMPLETE')).toBe(true);
+    expect(reply?.outputContracts?.[0]?.name).toBe('review-replies.md');
   });
 });
 

@@ -94,6 +94,7 @@ describe('formatPrReviewAsTask', () => {
         {
           author: 'reviewer',
           body: 'Fix this current diff issue',
+          replyCommentId: '123456789',
           path: 'src/app.ts',
           line: 12,
           url: 'https://example.com/pr/11#discussion_r1',
@@ -107,6 +108,7 @@ describe('formatPrReviewAsTask', () => {
     expect(result).toContain('### Review Policy');
     expect(result).toContain('### Active Review Threads');
     expect(result).toContain('**reviewer**: Fix this current diff issue');
+    expect(result).toContain('Reply Comment ID: 123456789');
     expect(result).toContain('File: src/app.ts, Line: 12');
     expect(result).toContain('URL: https://example.com/pr/11#discussion_r1');
     expect(result).not.toContain('### Review Comments');

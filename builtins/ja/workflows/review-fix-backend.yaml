@@ -169,7 +169,7 @@ steps:
     pass_previous_response: false
     rules:
       - condition: すべての検証が完了し、マージ可能な状態である
-        next: COMPLETE
+        next: reply
       - condition: 問題が検出された
         next: fix_supervisor
     output_contracts:
@@ -179,6 +179,25 @@ steps:
         - name: summary.md
           format: summary
           use_judge: false
+
+  - name: reply
+    edit: false
+    persona: pr-commenter
+    provider_options:
+      claude:
+        allowed_tools:
+          - Bash
+    instruction: reply-review-comments
+    pass_previous_response: false
+    rules:
+      - condition: 返信完了
+        next: COMPLETE
+      - condition: 返信できないコメントがある
+        next: COMPLETE
+    output_contracts:
+      report:
+        - name: review-replies.md
+          format: review-replies
 
   - name: fix_supervisor
     edit: true
