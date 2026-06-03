@@ -9,7 +9,9 @@
    - `pull/123`
    - `pulls/123`
 2. `Active Review Threads` と、現在のコードにも当てはまる `Outdated But Unresolved Review Threads` を返信対象にする。
-3. 各コメントの `Reply Comment ID` を使って、対応内容を日本語で短く返信する。
+3. `Reply Comment ID` があるコメントだけを返信対象にし、対応内容を日本語で短く返信する。
+   - `Reply Comment ID` はtop-levelのレビューコメントにだけ付与される
+   - 既存thread内の返信コメントには返信しない
 4. 返信できたコメント、返信不要と判断したコメント、返信できなかったコメントをレポートへ記録する。
 
 ## 返信コマンド

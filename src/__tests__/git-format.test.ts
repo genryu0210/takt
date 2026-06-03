@@ -94,7 +94,7 @@ describe('formatPrReviewAsTask', () => {
         {
           author: 'reviewer',
           body: 'Fix this current diff issue',
-          databaseId: 123456789,
+          replyCommentId: '123456789',
           path: 'src/app.ts',
           line: 12,
           url: 'https://example.com/pr/11#discussion_r1',

@@ -124,8 +124,8 @@ const REVIEW_THREAD_POLICY = [
 function formatPrReviewComment(review: PrReviewComment): string {
   const lines = [`**${review.author}**: ${review.body}`];
 
-  if (review.databaseId !== undefined) {
-    lines.push(`  Reply Comment ID: ${review.databaseId}`);
+  if (review.replyCommentId !== undefined) {
+    lines.push(`  Reply Comment ID: ${review.replyCommentId}`);
   }
   if (review.path) {
     const location = review.line !== undefined

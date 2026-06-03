@@ -9,7 +9,9 @@ After fixes, verification, and final review are complete, reply to the addressed
    - `pull/123`
    - `pulls/123`
 2. Use `Active Review Threads` and any still-applicable `Outdated But Unresolved Review Threads` as reply targets.
-3. Use each comment's `Reply Comment ID` to post a concise reply in English.
+3. Reply only to comments that have a `Reply Comment ID`, and post a concise reply in English.
+   - `Reply Comment ID` is attached only to top-level review comments
+   - Do not reply to existing reply comments inside the same thread
 4. Record posted replies, skipped comments, and failed replies in the report.
 
 ## Reply Command

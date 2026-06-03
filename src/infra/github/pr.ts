@@ -138,7 +138,8 @@ query($owner:String!, $repo:String!, $number:Int!, $endCursor:String) {
           comments(first:${REVIEW_THREAD_COMMENTS_PER_PAGE}) {
             pageInfo { hasNextPage endCursor }
             nodes {
-              databaseId
+              fullDatabaseId
+              replyTo { fullDatabaseId }
               path
               line
               originalLine
@@ -161,7 +162,8 @@ query($threadId:ID!, $commentsEndCursor:String) {
       comments(first:${REVIEW_THREAD_COMMENTS_PER_PAGE}, after:$commentsEndCursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
-          databaseId
+          fullDatabaseId
+          replyTo { fullDatabaseId }
           path
           line
           originalLine
@@ -222,7 +224,8 @@ interface GhGraphqlReviewThread {
 }
 
 interface GhGraphqlReviewThreadComment {
-  databaseId?: number;
+  fullDatabaseId?: string | number | null;
+  replyTo: { fullDatabaseId?: string | number | null } | null;
   path: string;
   line: number | null;
   originalLine: number | null;
@@ -314,6 +317,13 @@ function resolveReviewThreadCommentAuthor(comment: GhGraphqlReviewThreadComment)
   return DELETED_GITHUB_USER_AUTHOR;
 }
 
+function resolveReplyCommentId(comment: GhGraphqlReviewThreadComment): string | undefined {
+  if (comment.replyTo !== null || comment.fullDatabaseId === null || comment.fullDatabaseId === undefined) {
+    return undefined;
+  }
+  return String(comment.fullDatabaseId);
+}
+
 function fetchReviewThreadComments(
   thread: GhGraphqlReviewThread,
   prNumber: number,
@@ -353,10 +363,11 @@ function mapReviewThreadComments(
   const threadState = resolveThreadState(thread);
   return comments.map((comment) => {
     const line = comment.line ?? comment.originalLine ?? undefined;
+    const replyCommentId = resolveReplyCommentId(comment);
     return {
       author: resolveReviewThreadCommentAuthor(comment),
       body: comment.body,
-      ...(comment.databaseId !== undefined ? { databaseId: comment.databaseId } : {}),
+      ...(replyCommentId ? { replyCommentId } : {}),
       path: comment.path,
       ...(line !== undefined ? { line } : {}),
       url: comment.url,
