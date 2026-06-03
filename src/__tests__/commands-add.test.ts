@@ -135,6 +135,14 @@ describe('CLI add command', () => {
   });
 
   describe('when --pr option is provided', () => {
+    function getAddPrParser(): (value: string) => number {
+      const addCommand = commandMocks.get('root.add') as { option: ReturnType<typeof vi.fn> } | undefined;
+      const prOptionCall = addCommand?.option.mock.calls.find((call: unknown[]) => call[0] === '--pr <number>');
+      expect(prOptionCall).toBeTruthy();
+      expect(prOptionCall?.[2]).toBeTypeOf('function');
+      return prOptionCall?.[2] as (value: string) => number;
+    }
+
     it('should pass program.opts().pr to addTask as prNumber', async () => {
       const prNumber = 374;
       mockOpts.pr = prNumber;
@@ -144,6 +152,16 @@ describe('CLI add command', () => {
 
       await addAction?.();
       expect(mockAddTask).toHaveBeenCalledWith('/test/cwd', undefined, { prNumber });
+    });
+
+    it('should parse only positive integer PR numbers', () => {
+      const parsePrNumber = getAddPrParser();
+
+      expect(parsePrNumber('374')).toBe(374);
+      expect(() => parsePrNumber('abc')).toThrow('--pr must be a positive integer');
+      expect(() => parsePrNumber('12abc')).toThrow('--pr must be a positive integer');
+      expect(() => parsePrNumber('0')).toThrow('--pr must be a positive integer');
+      expect(() => parsePrNumber('-1')).toThrow('--pr must be a positive integer');
     });
   });
 

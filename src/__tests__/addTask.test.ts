@@ -352,6 +352,31 @@ describe('addTask', () => {
     expect(task.should_publish_branch_to_origin).toBe(true);
   });
 
+  it('should honor non-interactive PR review task settings', async () => {
+    const prReview = createMockPrReview({ baseRefName: 'main' });
+    mockFetchPrReviewComments.mockReturnValue(prReview);
+    mockFormatPrReviewAsTask.mockReturnValue('## PR review task');
+
+    await addTask(testDir, undefined, {
+      prNumber: 456,
+      worktree: '/tmp/takt-review-worktree',
+      autoPr: true,
+      draftPr: true,
+    });
+
+    expect(mockPromptInput).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+    const task = loadTasks(testDir).tasks[0]!;
+    expect(task.worktree).toBe('/tmp/takt-review-worktree');
+    expect(task.branch).toBe('feature/fix-auth-bug');
+    expect(task.base_branch).toBe('main');
+    expect(task.auto_pr).toBe(true);
+    expect(task.draft_pr).toBe(true);
+    expect(task.should_publish_branch_to_origin).toBe(true);
+    expect(task.source).toBe('pr_review');
+    expect(task.pr_number).toBe(456);
+  });
+
   it('should not create a PR task when PR has no review comments', async () => {
     const prReview = createMockPrReview({ comments: [], reviews: [] });
     mockFetchPrReviewComments.mockReturnValue(prReview);

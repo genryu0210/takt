@@ -5,7 +5,7 @@
  */
 
 import { join } from 'node:path';
-import type { Command } from 'commander';
+import { InvalidArgumentError, type Command } from 'commander';
 import { clearPersonaSessions, resolveConfigValue } from '../../infra/config/index.js';
 import { getGlobalConfigDir } from '../../infra/config/paths.js';
 import { success, info, error as logError } from '../../shared/ui/index.js';
@@ -58,7 +58,7 @@ program
   .command('add')
   .description('Add a new task')
   .argument('[task]', 'Task description or issue reference (e.g. "#28")')
-  .option('--pr <number>', 'PR number to fetch review comments and fix', (val: string) => parseInt(val, 10))
+  .option('--pr <number>', 'PR number to fetch review comments and fix', (val: string) => parsePositiveIntegerOption(val, '--pr'))
   .option('-w, --workflow <name>', 'Workflow name or path to workflow file')
   .option('--worktree', 'Use an isolated shared clone for the task')
   .option('--worktree-path <path>', 'Use an isolated shared clone at a custom path')
@@ -109,6 +109,14 @@ function resolveAddWorktreeOption(worktreeFlag: unknown, worktreePath: unknown):
     return true;
   }
   return undefined;
+}
+
+function parsePositiveIntegerOption(value: string, optionName: string): number {
+  const trimmed = value.trim();
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    throw new InvalidArgumentError(`${optionName} must be a positive integer`);
+  }
+  return Number(trimmed);
 }
 
 program

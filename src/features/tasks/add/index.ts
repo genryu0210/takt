@@ -237,12 +237,14 @@ export async function addTask(
       return;
     }
 
+    const presetSettings = resolvePresetWorktreeSettings(opts);
     const settings = {
       worktree: true,
       branch: prReview.headRefName,
       baseBranch: prReview.baseRefName,
       autoPr: false,
       shouldPublishBranchToOrigin: true,
+      ...presetSettings,
     };
     const created = await saveTaskFile(cwd, taskContent, { workflow, ...settings, prNumber });
     displayTaskCreationResult(created, settings, workflow);

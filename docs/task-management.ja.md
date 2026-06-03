@@ -22,10 +22,10 @@ TAKT は複数のタスクを蓄積してバッチ実行するためのタスク
 takt add "Implement user authentication"
 
 # GitHub Issue からタスクを追加
-takt add #28
+takt add '#28'
 
 # 非対話で workflow / worktree / draft PR を指定して追加
-takt add #28 --workflow backend-mini --worktree --auto-pr --draft
+takt add '#28' --workflow backend-mini --worktree --auto-pr --draft
 ```
 
 タスク追加時に次の項目を確認されます。

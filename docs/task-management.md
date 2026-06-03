@@ -22,10 +22,10 @@ Use `takt add` to create a new task entry in `.takt/tasks.yaml`.
 takt add "Implement user authentication"
 
 # Add a task from a GitHub Issue
-takt add #28
+takt add '#28'
 
 # Add a task non-interactively with worktree execution and a draft PR
-takt add #28 --workflow backend-mini --worktree --auto-pr --draft
+takt add '#28' --workflow backend-mini --worktree --auto-pr --draft
 ```
 
 When adding a task, you are prompted for:
