@@ -135,8 +135,15 @@ Refine task requirements through AI conversation, then add a task to `.takt/task
 takt add
 
 # Add task from GitHub Issue (issue number reflected in branch name)
-takt add #28
+takt add '#28'
+
+# Add a task non-interactively for watch/run processing
+takt add '#28' --workflow backend-mini --worktree --auto-pr --draft
 ```
+
+For `takt add`, `--worktree`, `--worktree-path`, `--branch`, `--base-branch`,
+`--auto-pr`, and `--draft` save task execution settings without prompting for
+those values. `--draft` implies `--auto-pr`.
 
 ### takt run
 

@@ -46,6 +46,16 @@ type SaveTaskOptions = {
   attachments?: TaskAttachment[];
 };
 
+export type AddTaskOptions = {
+  workflow?: string;
+  prNumber?: number;
+  worktree?: boolean | string;
+  branch?: string;
+  baseBranch?: string;
+  autoPr?: boolean;
+  draftPr?: boolean;
+};
+
 function buildValidatedTaskConfig(options?: SaveTaskOptions): Omit<TaskFileData, 'task'> {
   const resolvedWorkflow = options ? resolveTaskWorkflowValue(options) : undefined;
   return TaskExecutionConfigSchema.parse({
@@ -188,7 +198,7 @@ export async function createIssueAndSaveTask(
 export async function addTask(
   cwd: string,
   task?: string,
-  opts?: { prNumber?: number; workflow?: string },
+  opts?: AddTaskOptions,
 ): Promise<void> {
   const rawTask = task ?? '';
   const trimmedTask = rawTask.trim();
@@ -227,12 +237,14 @@ export async function addTask(
       return;
     }
 
+    const presetSettings = resolvePresetWorktreeSettings(opts);
     const settings = {
       worktree: true,
       branch: prReview.headRefName,
       baseBranch: prReview.baseRefName,
       autoPr: false,
       shouldPublishBranchToOrigin: true,
+      ...presetSettings,
     };
     const created = await saveTaskFile(cwd, taskContent, { workflow, ...settings, prNumber });
     displayTaskCreationResult(created, settings, workflow);
@@ -275,7 +287,7 @@ export async function addTask(
     return;
   }
 
-  const settings = await promptWorktreeSettings(cwd);
+  const settings = resolvePresetWorktreeSettings(opts) ?? await promptWorktreeSettings(cwd);
 
   const created = await saveTaskFile(cwd, taskContent, {
     workflow,
@@ -284,4 +296,32 @@ export async function addTask(
   });
 
   displayTaskCreationResult(created, settings, workflow);
+}
+
+function resolvePresetWorktreeSettings(options: AddTaskOptions | undefined): WorktreeSettings | undefined {
+  if (!options) {
+    return undefined;
+  }
+  const hasPresetSetting = options.worktree !== undefined
+    || options.branch !== undefined
+    || options.baseBranch !== undefined
+    || options.autoPr !== undefined
+    || options.draftPr !== undefined;
+  if (!hasPresetSetting) {
+    return undefined;
+  }
+
+  const autoPr = options.autoPr === true || options.draftPr === true ? true : options.autoPr;
+  const needsWorktree = options.branch !== undefined
+    || options.baseBranch !== undefined
+    || autoPr === true
+    || options.draftPr === true;
+
+  return {
+    ...(options.worktree !== undefined ? { worktree: options.worktree } : (needsWorktree ? { worktree: true } : {})),
+    ...(options.branch !== undefined ? { branch: options.branch } : {}),
+    ...(options.baseBranch !== undefined ? { baseBranch: options.baseBranch } : {}),
+    ...(autoPr !== undefined ? { autoPr } : {}),
+    ...(options.draftPr !== undefined ? { draftPr: options.draftPr } : {}),
+  };
 }

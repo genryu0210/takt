@@ -5,11 +5,11 @@
  */
 
 import { join } from 'node:path';
-import type { Command } from 'commander';
+import { InvalidArgumentError, type Command } from 'commander';
 import { clearPersonaSessions, resolveConfigValue } from '../../infra/config/index.js';
 import { getGlobalConfigDir } from '../../infra/config/paths.js';
 import { success, info, error as logError } from '../../shared/ui/index.js';
-import { runAllTasks, addTask, watchTasks, listTasks, resumeDirectRun } from '../../features/tasks/index.js';
+import { runAllTasks, addTask, watchTasks, listTasks, resumeDirectRun, type AddTaskOptions } from '../../features/tasks/index.js';
 import {
   ejectBuiltin,
   ejectFacet,
@@ -58,6 +58,14 @@ program
   .command('add')
   .description('Add a new task')
   .argument('[task]', 'Task description or issue reference (e.g. "#28")')
+  .option('--pr <number>', 'PR number to fetch review comments and fix', (val: string) => parsePositiveIntegerOption(val, '--pr'))
+  .option('-w, --workflow <name>', 'Workflow name or path to workflow file')
+  .option('--worktree', 'Use an isolated shared clone for the task')
+  .option('--worktree-path <path>', 'Use an isolated shared clone at a custom path')
+  .option('-b, --branch <name>', 'Branch name (auto-generated if omitted)')
+  .option('--base-branch <branch>', 'Base branch for the task')
+  .option('--auto-pr', 'Create PR after successful task execution')
+  .option('--draft', 'Create PR as draft (implies --auto-pr)')
   .action(async (task: string | undefined, commandOrOpts?: Command | { opts?: () => Record<string, unknown> }) => {
     const optsWithGlobals = (
       commandOrOpts && 'optsWithGlobals' in commandOrOpts && typeof commandOrOpts.optsWithGlobals === 'function'
@@ -74,9 +82,17 @@ program
       logError(error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
-    const addTaskOptions = {
+    const worktree = resolveAddWorktreeOption(opts.worktree, opts.worktreePath);
+    const draftPr = opts.draft === true ? true : undefined;
+    const autoPr = opts.autoPr === true || draftPr === true ? true : undefined;
+    const addTaskOptions: AddTaskOptions = {
       ...(opts.pr !== undefined ? { prNumber: opts.pr as number } : {}),
       ...(workflow !== undefined ? { workflow } : {}),
+      ...(worktree !== undefined ? { worktree } : {}),
+      ...(typeof opts.branch === 'string' ? { branch: opts.branch } : {}),
+      ...(typeof opts.baseBranch === 'string' ? { baseBranch: opts.baseBranch } : {}),
+      ...(autoPr !== undefined ? { autoPr } : {}),
+      ...(draftPr !== undefined ? { draftPr } : {}),
     };
     await addTask(
       resolvedCwd,
@@ -84,6 +100,24 @@ program
       Object.keys(addTaskOptions).length > 0 ? addTaskOptions : undefined,
     );
   });
+
+function resolveAddWorktreeOption(worktreeFlag: unknown, worktreePath: unknown): boolean | string | undefined {
+  if (typeof worktreePath === 'string' && worktreePath.trim().length > 0) {
+    return worktreePath;
+  }
+  if (worktreeFlag === true) {
+    return true;
+  }
+  return undefined;
+}
+
+function parsePositiveIntegerOption(value: string, optionName: string): number {
+  const trimmed = value.trim();
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    throw new InvalidArgumentError(`${optionName} must be a positive integer`);
+  }
+  return Number(trimmed);
+}
 
 program
   .command('list')
